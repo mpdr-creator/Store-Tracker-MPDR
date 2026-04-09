@@ -235,9 +235,14 @@ from config import DEPARTMENTS, ROLES, TRANSACTION_TYPES
 
 # ── Database init ───────────────────────────────
 if "db_ready" not in st.session_state:
-    if not os.path.exists("credentials.json"):
-        st.error("❌ **credentials.json** not found. Place it in the app folder.")
+    # Check if either local file exists OR secrets are configured
+    creds_exist = os.path.exists("credentials.json")
+    secrets_exist = "gcp_service_account" in st.secrets
+    
+    if not creds_exist and not secrets_exist:
+        st.error("❌ **Credentials missing.** Please configure Streamlit Secrets or provide `credentials.json`.")
         st.stop()
+        
     ok, msg = db.initialize_database()
     if not ok:
         st.error(msg)
