@@ -1,0 +1,212 @@
+# ──────────────────────────────────────────────
+# Store Tracker — Authentication Module
+# ──────────────────────────────────────────────
+import os
+import random
+import smtplib
+from email.message import EmailMessage
+
+import streamlit as st
+import bcrypt
+import db
+
+
+def send_otp(to_email, otp_code):
+    sender = os.getenv("SMTP_EMAIL")
+    pwd = os.getenv("SMTP_PASSWORD")
+    if not sender or not pwd:
+        st.warning(f"🔧 DEV MODE: SMTP not configured. Your OTP is: **{otp_code}**")
+        return True
+    
+    msg = EmailMessage()
+    msg.set_content(f"Your Store Tracker Verification Code is: {otp_code}\n\nPlease do not share this code with anyone.")
+    msg['Subject'] = 'Store Tracker - Verification Code'
+    msg['From'] = sender
+    msg['To'] = to_email
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender, pwd)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        st.error("Failed to send email. Check SMTP configuration.")
+        return False
+
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def check_password(stored_hash: str, password: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8"))
+    except Exception:
+        return False
+
+
+
+
+
+def login_page():
+    """Render the login page. Returns True if user is now logged in."""
+
+    # Centre the login card
+    col_l, col_m, col_r = st.columns([1, 2, 1])
+    with col_m:
+        st.markdown(
+            """
+            <div style="text-align:center; margin-top:40px; margin-bottom: 20px;">
+                <h1 style="font-family: 'Montserrat', sans-serif; color: #1e293b; margin-bottom:0; font-size: 2.5rem;">
+                    <span style="color: #10b981;">📦</span> Store Tracker
+                </h1>
+                <p style="color: #64748b; font-family: 'Inter', sans-serif; font-size: 1.1rem; font-weight: 500;">
+                    MPDR Chemical Inventory Management
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        tab_login, tab_register, tab_forgot = st.tabs(["Login", "Register", "Forgot Password"])
+
+        with tab_login:
+            with st.form("login_form", clear_on_submit=False):
+                email = st.text_input("Email", placeholder="name@morepenpdr.com")
+                password = st.text_input("Password", type="password", placeholder="Enter password")
+                submitted = st.form_submit_button("Login", use_container_width=True)
+
+            if submitted:
+                if not email or not password:
+                    st.error("Please enter both email and password.")
+                    return False
+
+                user = db.get_user(email)
+                if user is not None and check_password(str(user["Password_Hash"]), password):
+                    st.session_state["logged_in"] = True
+                    st.session_state["email"] = email
+                    st.session_state["role"] = user["Role"]
+                    st.session_state["department"] = user.get("Department", "")
+                    st.session_state["user_id"] = user["UserID"]
+                    st.rerun()
+                else:
+                    st.error("Invalid email or password.")
+                    
+        with tab_register:
+            from config import ROLES, DEPARTMENTS
+            
+            if "reg_state" not in st.session_state:
+                st.session_state.reg_state = "input"
+                
+            if st.session_state.reg_state == "input":
+                reg_email = st.text_input("Choose Email *", placeholder="name@morepenpdr.com", key="reg_email_in")
+                reg_pass = st.text_input("Choose Password *", type="password", key="reg_pass_in")
+                reg_pass2 = st.text_input("Confirm Password *", type="password", key="reg_pass2_in")
+                reg_role = st.selectbox("Select Role *", ROLES, key="reg_role_in")
+                
+                reg_dept = ""
+                if reg_role == "Scientist":
+                    reg_dept = st.selectbox("Select Department *", [""] + DEPARTMENTS, key="reg_dept_in")
+                    
+                if st.button("Send Verification OTP", use_container_width=True, key="reg_btn"):
+                    if not reg_email or not reg_pass:
+                        st.error("Email and password are required.")
+                    elif not reg_email.endswith("@morepenpdr.com"):
+                        st.error("Only @morepenpdr.com emails are allowed for registration.")
+                    elif reg_pass != reg_pass2:
+                        st.error("Passwords do not match.")
+                    elif reg_role in ["Admin", "Management"] and reg_email.lower() != "admin@morepenpdr.com":
+                        st.error("Only the designated email (admin@morepenpdr.com) can hold Admin privileges.")
+                    elif reg_role == "Scientist" and not reg_dept:
+                        st.error("Scientists must select a department.")
+                    elif db.get_user(reg_email) is not None:
+                        st.error(f"Email '{reg_email}' is already registered.")
+                    else:
+                        otp = str(random.randint(100000, 999999))
+                        if send_otp(reg_email, otp):
+                            st.session_state.reg_otp = otp
+                            st.session_state.reg_data = {
+                                "email": reg_email, "pass": reg_pass, 
+                                "role": reg_role, "dept": reg_dept
+                            }
+                            st.session_state.reg_state = "verify"
+                            st.rerun()
+
+            elif st.session_state.reg_state == "verify":
+                st.info(f"An OTP has been sent to {st.session_state.reg_data['email']}")
+                otp_input = st.text_input("Enter 6-digit OTP", key="reg_otp_in")
+                if st.button("Verify & Register", use_container_width=True, key="reg_verify_btn"):
+                    if otp_input == st.session_state.reg_otp:
+                        d = st.session_state.reg_data
+                        db.add_user(d["email"], hash_password(d["pass"]), d["role"], d["dept"])
+                        st.success("✅ Registration successful! You can now login.")
+                        st.session_state.reg_state = "input"
+                    else:
+                        st.error("Invalid OTP.")
+                if st.button("Cancel", key="reg_cancel_btn"):
+                    st.session_state.reg_state = "input"
+                    st.rerun()
+
+        with tab_forgot:
+            if "forgot_state" not in st.session_state:
+                st.session_state.forgot_state = "input"
+                
+            if st.session_state.forgot_state == "input":
+                for_email = st.text_input("Registered Email", placeholder="name@morepenpdr.com", key="for_email")
+                if st.button("Send Reset OTP", use_container_width=True, key="for_btn"):
+                    if not for_email:
+                        st.error("Please enter your email.")
+                    elif db.get_user(for_email) is None:
+                        st.error("Account not found in the system.")
+                    else:
+                        otp = str(random.randint(100000, 999999))
+                        if send_otp(for_email, otp):
+                            st.session_state.forgot_otp = otp
+                            st.session_state.forgot_email = for_email
+                            st.session_state.forgot_state = "verify"
+                            st.rerun()
+                            
+            elif st.session_state.forgot_state == "verify":
+                st.info(f"OTP sent to {st.session_state.forgot_email}")
+                for_otp = st.text_input("Enter 6-digit OTP", key="for_otp_in")
+                new_pass = st.text_input("New Password", type="password", key="for_pass")
+                if st.button("Reset Password", use_container_width=True, key="for_verify_btn"):
+                    if for_otp == st.session_state.forgot_otp:
+                        if not new_pass:
+                            st.error("New password required.")
+                        else:
+                            db.update_password(st.session_state.forgot_email, hash_password(new_pass))
+                            st.success("✅ Password updated successfully! Switch to Login tab.")
+                            st.session_state.forgot_state = "input"
+                    else:
+                        st.error("Invalid OTP.")
+                if st.button("Cancel", key="for_cancel_btn"):
+                    st.session_state.forgot_state = "input"
+                    st.rerun()
+    return False
+
+
+def require_login():
+    """Call at top of app.py — blocks rendering until logged in."""
+    if not st.session_state.get("logged_in"):
+        login_page()
+        st.stop()
+
+
+def logout():
+    st.session_state.clear()
+    st.rerun()
+
+
+def current_user():
+    return st.session_state.get("email", "")
+
+
+def current_role():
+    return st.session_state.get("role", "")
+
+
+def current_department():
+    return st.session_state.get("department", "")
