@@ -114,7 +114,7 @@ def initialize_database():
                 sh.share(SHARE_EMAIL, perm_type="user", role="writer")
             except Exception:
                 pass
-    except Exception as e:
+        except Exception as e:
             # Try to get email for quota error message
             try:
                 if "gcp_service_account" in st.secrets:
