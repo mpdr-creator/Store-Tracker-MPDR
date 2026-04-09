@@ -8,6 +8,7 @@ import datetime
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
+import streamlit as st
 from config import (
     SCOPES, SPREADSHEET_NAME, SHARE_EMAIL,
     WS_INVENTORY, WS_LEDGER, WS_REQUESTS, WS_USERS, WS_VENDORS,
@@ -28,12 +29,25 @@ def _get_client():
     global _client
     if _client is not None:
         return _client
+    
+    # 1. Try Streamlit Secrets (for Cloud Deployment)
+    if "gcp_service_account" in st.secrets:
+        try:
+            creds_info = st.secrets["gcp_service_account"]
+            creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
+            _client = gspread.authorize(creds)
+            return _client
+        except Exception as e:
+            print(f"[db] Error loading secrets: {e}")
+
+    # 2. Try Local File (for Local Development)
     creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "credentials.json")
-    if not os.path.exists(creds_path):
-        return None
-    creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
-    _client = gspread.authorize(creds)
-    return _client
+    if os.path.exists(creds_path):
+        creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
+        _client = gspread.authorize(creds)
+        return _client
+        
+    return None
 
 
 def _get_spreadsheet():
@@ -100,10 +114,18 @@ def initialize_database():
                 sh.share(SHARE_EMAIL, perm_type="user", role="writer")
             except Exception:
                 pass
-        except Exception as e:
-            creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "credentials.json")
-            creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
-            sa_email = getattr(creds, "service_account_email", "the service account")
+    except Exception as e:
+            # Try to get email for quota error message
+            try:
+                if "gcp_service_account" in st.secrets:
+                    sa_email = st.secrets["gcp_service_account"].get("client_email", "the service account")
+                else:
+                    creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "credentials.json")
+                    creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
+                    sa_email = getattr(creds, "service_account_email", "the service account")
+            except Exception:
+                sa_email = "the service account"
+
             if "quota" in str(e).lower():
                 return False, (
                     f"Drive quota exceeded. Please manually create a Google Sheet "
