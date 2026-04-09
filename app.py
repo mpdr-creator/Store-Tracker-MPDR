@@ -228,6 +228,26 @@ def _get_plotly_layout(title):
         yaxis=dict(gridcolor="#f3f4f6", zerolinecolor="#e5e7eb"),
     )
 
+def _display_store_timings():
+    """Display the store timings notice in a green medical-themed caution box."""
+    st.markdown(f"""
+    <div style="background-color: {STATUS_PALETTE['success']['bg']}; 
+                color: {STATUS_PALETTE['success']['text']}; 
+                padding: 16px; 
+                border-radius: 10px; 
+                border: 1px solid #10b981; 
+                border-left: 5px solid #10b981;
+                margin-bottom: 20px;
+                font-family: 'Inter', sans-serif;">
+        <span style="font-size: 1.2rem; margin-right: 8px;">⚠️</span>
+        <b style="font-family: 'Montserrat', sans-serif;">Our store timings are 10:00–11:00 AM, 2:00–3:00 PM, and 5:00–6:00 PM.</b><br>
+        <div style="margin-left: 28px; margin-top: 4px; font-size: 0.9rem; opacity: 0.9;">
+            In case of any urgent requirement or emergency, please feel free to contact us at any time.<br>
+            <i>Thank you for your understanding.</i>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 # ── Imports (after st.set_page_config) ──────────
 import db
 import auth
@@ -914,11 +934,7 @@ def admin_vendors(is_admin=True):
 def scientist_stock_viewer():
     st.title("🔬 Available Stock")
     
-    st.info("""
-    **Our store timings are 10:00–11:00 AM, 2:00–3:00 PM, and 5:00–6:00 PM.**  
-    In case of any urgent requirement or emergency, please feel free to contact us at any time.  
-    *Thank you for your understanding.*
-    """)
+    _display_store_timings()
 
     inv = _load_inventory_with_stock()
     if inv.empty:
@@ -970,11 +986,7 @@ def scientist_stock_viewer():
 def scientist_submit_request():
     st.title("📝 Submit Material Request(s)")
     
-    st.info("""
-    **Our store timings are 10:00–11:00 AM, 2:00–3:00 PM, and 5:00–6:00 PM.**  
-    In case of any urgent requirement or emergency, please feel free to contact us at any time.  
-    *Thank you for your understanding.*
-    """)
+    _display_store_timings()
 
     if "cart" not in st.session_state:
         st.session_state["cart"] = []
@@ -1074,7 +1086,7 @@ def scientist_my_requests():
     req_cols = [c for c in cols if c in reqs.columns]
     display_reqs = reqs[req_cols].copy()
     display_reqs.insert(0, "S.No", range(1, len(display_reqs) + 1))
-    styled = display_reqs.style.applymap(status_color, subset=["Status"])
+    styled = display_reqs.style.map(status_color, subset=["Status"])
     st.dataframe(styled, use_container_width=True, height=400, hide_index=True)
 
 
