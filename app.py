@@ -870,13 +870,19 @@ def admin_manage_users():
             new_email = c1.text_input("Email *", placeholder="name@morepenpdr.com")
             new_pass = c2.text_input("Password *", type="password")
             new_role = c1.selectbox("Role", ROLES)
-            new_dept = c2.selectbox("Department", [""] + DEPARTMENTS)
+            
+            # Match registration logic: Only ask for department if role is Scientist
+            new_dept = ""
+            if new_role == "Scientist":
+                new_dept = c2.selectbox("Department *", [""] + DEPARTMENTS)
 
             if st.form_submit_button("➕ Create User", use_container_width=True):
                 if not new_email or not new_pass:
                     st.error("Email and password are required.")
                 elif not new_email.endswith("@morepenpdr.com"):
                     st.error("Only @morepenpdr.com emails are allowed.")
+                elif new_role == "Scientist" and not new_dept:
+                    st.error("Scientists must be assigned to a department.")
                 else:
                     existing = db.get_user(new_email)
                     if existing is not None:
