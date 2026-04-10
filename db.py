@@ -464,19 +464,36 @@ def save_po_track(df):
         # Clear existing data
         ws.clear()
         
-        # Prepare data: convert everything to string to avoid JSON serialisation errors
-        # and replace NaT/NaN with empty strings
+        # Prepare data: convert everything to string and handle NaN/NaT/None
+        # because JSON serialiser (used by gspread) crashes on 'nan' floats.
         data_df = df.copy()
-        for col in data_df.columns:
-            if pd.api.types.is_datetime64_any_dtype(data_df[col]):
-                data_df[col] = data_df[col].dt.strftime('%Y-%m-%d').replace('NaT', '')
-            else:
-                data_df[col] = data_df[col].fillna('').astype(str).replace('nan', '')
+        
+        # 1. Format dates specifically
+        date_cols = [c for c in data_df.columns if pd.api.types.is_datetime64_any_dtype(data_df[c])]
+        for col in date_cols:
+            data_df[col] = data_df[col].dt.strftime('%Y-%m-%d')
 
-        data = [data_df.columns.tolist()] + data_df.values.tolist()
+        # 2. Fill all Nulls with empty string and convert whole DF to string
+        data_df = data_df.fillna("")
+        
+        # 3. Create the row list and do a final safety pass on every cell
+        headers = data_df.columns.tolist()
+        body = data_df.values.tolist()
+        
+        cleaned_data = [headers]
+        for row in body:
+            clean_row = []
+            for val in row:
+                # Catch any remaining nan/NaT/None objects or strings
+                s_val = str(val)
+                if s_val.lower() in ["nan", "nat", "none", "<na>"]:
+                    clean_row.append("")
+                else:
+                    clean_row.append(s_val)
+            cleaned_data.append(clean_row)
         
         # Standard gspread update requires a range or a named parameter 'values'
-        ws.update("A1", data)
+        ws.update("A1", cleaned_data)
         return True, "PO Tracking data saved successfully."
     except Exception as e:
         return False, f"Error saving PO data: {e}"
