@@ -948,29 +948,15 @@ def admin_po_track():
         if df.empty:
             st.info("No PO tracking data available. Switch to **Edit Spreadsheet** to add records.")
         else:
-            # Search Bar specifically for Review Mode
-            search_po = st.text_input("🔍 Search PO / PR / Material / CAS", placeholder="Enter search term...", key="po_search_input")
-            
-            display_df = df.copy()
-            if search_po:
-                # Filter logic for specific columns
-                mask = (
-                    display_df["PO Number"].astype(str).str.contains(search_po, case=False, na=False) |
-                    display_df["PR Number"].astype(str).str.contains(search_po, case=False, na=False) |
-                    display_df["Material Name"].astype(str).str.contains(search_po, case=False, na=False) |
-                    display_df["CAS number"].astype(str).str.contains(search_po, case=False, na=False)
-                )
-                display_df = display_df[mask]
-
             # Apply styling and formatting for display
-            styled_df = display_df.style.apply(style_po_rows, axis=1)
+            styled_df = df.style.apply(style_po_rows, axis=1)
             
-            # Format date columns for clean display
+            # Format date columns for clean display (e.g., 2024-04-10)
             date_format = {col: lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else "" for col in date_cols}
             styled_df = styled_df.format(date_format)
             
             st.dataframe(styled_df, use_container_width=True, height=600, hide_index=True)
-            st.caption(f"Showing {len(display_df)} records. Rows are highlighted based on their current status.")
+            st.caption(f"Showing {len(df)} tracking records. Rows are highlighted based on their current status.")
 
     with tab_edit:
         st.info("💡 **Tip:** Scroll to the bottom to add a new row. Remember to click **Save** after making changes.")
