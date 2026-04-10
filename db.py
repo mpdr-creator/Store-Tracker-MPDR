@@ -427,3 +427,17 @@ def add_user(email, password_hash, role, department=""):
 def update_password(email, new_hash):
     """Update password hash for existing user."""
     return _update_cell_by_id(WS_USERS, "Email", email, {"Password_Hash": new_hash})
+
+
+def delete_user(user_id):
+    """Delete a user from the database."""
+    ws = _ws(WS_USERS)
+    try:
+        records = ws.get_all_records()
+        for idx, row in enumerate(records):
+            if str(row.get("UserID")) == str(user_id):
+                ws.delete_rows(idx + 2)  # +1 header, +1 zero-index
+                return True, "User deleted."
+    except Exception as e:
+         return False, f"Error deleting user: {e}"
+    return False, "User not found."
