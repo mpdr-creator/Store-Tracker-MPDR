@@ -453,12 +453,30 @@ def get_po_track():
 def save_po_track(df):
     """Overwrite the PO tracking worksheet with the given DataFrame."""
     try:
-        ws = _ws(WS_PO_TRACK)
-        # Clear existing data except headers
+        sh = _get_spreadsheet()
+        if not sh:
+            return False, "Could not connect to Google Sheets."
+            
+        # Ensure worksheet exists before saving
+        from config import PO_HEADERS
+        ws = _ensure_worksheet(sh, WS_PO_TRACK, PO_HEADERS)
+        
+        # Clear existing data
         ws.clear()
-        # Update with new data (including headers)
-        data = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
-        ws.update(data)
+        
+        # Prepare data: convert everything to string to avoid JSON serialisation errors
+        # and replace NaT/NaN with empty strings
+        data_df = df.copy()
+        for col in data_df.columns:
+            if pd.api.types.is_datetime64_any_dtype(data_df[col]):
+                data_df[col] = data_df[col].dt.strftime('%Y-%m-%d').replace('NaT', '')
+            else:
+                data_df[col] = data_df[col].fillna('').astype(str).replace('nan', '')
+
+        data = [data_df.columns.tolist()] + data_df.values.tolist()
+        
+        # Standard gspread update requires a range or a named parameter 'values'
+        ws.update("A1", data)
         return True, "PO Tracking data saved successfully."
     except Exception as e:
         return False, f"Error saving PO data: {e}"
