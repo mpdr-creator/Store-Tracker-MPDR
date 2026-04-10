@@ -55,3 +55,13 @@ REQUEST_STATUSES = ["PENDING", "APPROVED", "REJECTED"]
 # Categories for display grouping
 CATEGORIES = ["Chemical", "Solvents", "Reagents", "Raw Materials",
               "Buffers", "Media", "Lab Supplies", "Stationery"]
+
+# PO Tracking
+WS_PO_TRACK = "PO_Tracking"
+PO_HEADERS = [
+    "S.No", "PO Date", "PO Number", "PR Number", "PR creator", "Depart", 
+    "Material Name", "CAS number", "Manifacturer", "Supplier", "Ordered Qty(G)", 
+    "Unit", "Days to deliver", "Expected Delivery", "Follow-up Date", "Status", 
+    "Recived date", "Remark/Note"
+]
+PO_UNITS = ["KG", "GM", "MG", "Ltr", "ML", "Units", "Box", "Number's", "Packets", "others"]
