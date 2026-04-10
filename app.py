@@ -899,10 +899,10 @@ def admin_manage_users():
                     from auth import hash_password
                     db.add_user(new_email, hash_password(new_pass), new_role, new_dept)
                     st.success(f"User **{new_email}** created with role **{new_role}**.")
-                    # Clear inputs by resetting session state keys
-                    st.session_state.admin_add_email = ""
-                    st.session_state.admin_add_pass = ""
-                    st.session_state.admin_add_dept = ""
+                    # Safe cleanup of session state keys
+                    st.session_state.pop("admin_add_email", None)
+                    st.session_state.pop("admin_add_pass", None)
+                    st.session_state.pop("admin_add_dept", None)
                     st.rerun()
 
 def admin_po_track():
