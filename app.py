@@ -865,36 +865,43 @@ def admin_manage_users():
             st.info("No users found.")
 
     with tab_add:
-        with st.form("add_user_form", clear_on_submit=True):
+        # Use a container for styling (mimics the form look)
+        with st.container(border=True):
             c1, c2 = st.columns(2)
-            new_email = c1.text_input("Email *", placeholder="name@morepenpdr.com")
-            new_pass = c2.text_input("Password *", type="password")
-            new_role = c1.selectbox("Role", ROLES)
+            new_email = c1.text_input("Email *", placeholder="name@morepenpdr.com", key="admin_add_email")
+            new_pass = c2.text_input("Password *", type="password", key="admin_add_pass")
+            new_role = c1.selectbox("Role", ROLES, key="admin_add_role")
             
-            # Scientists: Enabled selection. Admin/Management: Visible but locked (disabled).
+            # Reactive behavior: Enabled selection for Scientists, Visible but locked for others.
             is_scientist = (new_role == "Scientist")
             new_dept = c2.selectbox(
                 "Department" + (" *" if is_scientist else ""), 
                 [""] + DEPARTMENTS, 
                 index=0,
-                disabled=not is_scientist
+                disabled=not is_scientist,
+                key="admin_add_dept"
             )
 
-            if st.form_submit_button("➕ Create User", use_container_width=True):
-                if not new_email or not new_pass:
-                    st.error("Email and password are required.")
-                elif not new_email.endswith("@morepenpdr.com"):
-                    st.error("Only @morepenpdr.com emails are allowed.")
-                elif new_role == "Scientist" and not new_dept:
-                    st.error("Scientists must be assigned to a department.")
+        if st.button("➕ Create User", use_container_width=True):
+            if not new_email or not new_pass:
+                st.error("Email and password are required.")
+            elif not new_email.endswith("@morepenpdr.com"):
+                st.error("Only @morepenpdr.com emails are allowed.")
+            elif new_role == "Scientist" and not new_dept:
+                st.error("Scientists must be assigned to a department.")
+            else:
+                existing = db.get_user(new_email)
+                if existing is not None:
+                    st.error("Email already exists.")
                 else:
-                    existing = db.get_user(new_email)
-                    if existing is not None:
-                        st.error("Email already exists.")
-                    else:
-                        from auth import hash_password
-                        db.add_user(new_email, hash_password(new_pass), new_role, new_dept)
-                        st.success(f"User **{new_email}** created with role **{new_role}**.")
+                    from auth import hash_password
+                    db.add_user(new_email, hash_password(new_pass), new_role, new_dept)
+                    st.success(f"User **{new_email}** created with role **{new_role}**.")
+                    # Clear inputs by resetting session state keys
+                    st.session_state.admin_add_email = ""
+                    st.session_state.admin_add_pass = ""
+                    st.session_state.admin_add_dept = ""
+                    st.rerun()
 
 def admin_vendors(is_admin=True):
     st.title("🏢 Suppliers & Vendors")
