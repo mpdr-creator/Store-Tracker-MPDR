@@ -565,12 +565,12 @@ def admin_inventory():
             material_name = c2.text_input("Full Material Name *", placeholder="e.g. Acetone 99% AR Grade")
             cas = c1.text_input("CAS Number", placeholder="e.g. 67-64-1")
             grade = c2.text_input("Grade / Purity", placeholder="e.g. 99%, AR Grade")
-            manufacturer = c1.text_input("Manufacturer", placeholder="e.g. SRL, HYMA")
+            pack_size = c1.text_input("Quantity / Pack Size", placeholder="e.g. 500mL, 1KG")
             units = c2.selectbox("Units", ["g", "mg", "kg", "mL", "L", "units", "pcs"])
             
             c3, c4 = st.columns(2)
             mat_type = c3.selectbox("Material Type", ["Solvents", "Chemicals", "Reagents", "Buffers", "Standards", "Lab Consumbles", "Others"])
-            pack_size = c4.text_input("Quantity / Pack Size", placeholder="e.g. 500mL, 1KG")
+            manufacturer = c4.text_input("Manufacturer", placeholder="e.g. SRL, HYMA")
             
             opening = st.number_input("Opening Stock", min_value=0.0, value=0.0, step=0.5)
             min_stock = st.number_input("Minimum Stock Alert Threshold", min_value=0.0, value=5.0, step=0.5)
@@ -610,7 +610,7 @@ def admin_inventory():
                     new_mat = c2.text_input("Material Name", value=str(item_row.get("Material_Name", "")))
                     new_cas = c1.text_input("CAS Number", value=str(item_row.get("CAS_No", "")))
                     new_grade = c2.text_input("Grade/Purity", value=str(item_row.get("Grade_Purity", "")))
-                    new_mfr = c1.text_input("Manufacturer", value=str(item_row.get("Manufacturer", "")))
+                    new_pack = c1.text_input("Quantity / Pack Size", value=str(item_row.get("Pack_Size", "")))
                     new_units = c2.text_input("Units", value=str(item_row.get("Units", "")))
                     
                     MAT_TYPES = ["Solvents", "Chemicals", "Reagents", "Buffers", "Standards", "Lab Consumbles", "Others"]
@@ -618,7 +618,7 @@ def admin_inventory():
                     c_mat_type = str(item_row.get("Material_Type", "Others"))
                     if c_mat_type not in MAT_TYPES: c_mat_type = "Others"
                     new_type = c3.selectbox("Material Type", MAT_TYPES, index=MAT_TYPES.index(c_mat_type))
-                    new_pack = c4.text_input("Quantity / Pack Size", value=str(item_row.get("Pack_Size", "")))
+                    new_mfr = c4.text_input("Manufacturer", value=str(item_row.get("Manufacturer", "")))
                     
                     min_val = item_row.get("Min_Stock", 5.0)
                     try:
@@ -836,9 +836,31 @@ def admin_manage_users():
     with tab_view:
         users = db.get_users()
         if not users.empty:
+            c1, c2 = st.columns([4, 1])
             display = users.drop(columns=["Password_Hash", "UserID"], errors="ignore").copy()
             display.insert(0, "S.No", range(1, len(display) + 1))
-            st.dataframe(display, use_container_width=True, hide_index=True)
+            c1.dataframe(display, use_container_width=True, hide_index=True)
+
+            with c2.form("delete_user_form"):
+                st.write("**Remove User**")
+                # Dictionary mapping Label -> UserID for selection
+                user_options = {f"{row['Email']} ({row['Role']})": row['UserID'] for _, row in users.iterrows()}
+                target_label = st.selectbox("Select user to delete", list(user_options.keys()))
+                
+                if st.form_submit_button("❌ Delete", use_container_width=True):
+                    target_id = user_options[target_label]
+                    # Get the email from the label for comparison
+                    target_email = target_label.split(" (")[0]
+                    
+                    if target_email == auth.current_user():
+                        st.error("You cannot delete your own account.")
+                    else:
+                        ok, msg = db.delete_user(target_id)
+                        if ok:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
         else:
             st.info("No users found.")
 
