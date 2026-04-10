@@ -871,10 +871,14 @@ def admin_manage_users():
             new_pass = c2.text_input("Password *", type="password")
             new_role = c1.selectbox("Role", ROLES)
             
-            # Match registration logic: Only ask for department if role is Scientist
-            new_dept = ""
-            if new_role == "Scientist":
-                new_dept = c2.selectbox("Department *", [""] + DEPARTMENTS)
+            # Scientists: Enabled selection. Admin/Management: Visible but locked (disabled).
+            is_scientist = (new_role == "Scientist")
+            new_dept = c2.selectbox(
+                "Department" + (" *" if is_scientist else ""), 
+                [""] + DEPARTMENTS, 
+                index=0,
+                disabled=not is_scientist
+            )
 
             if st.form_submit_button("➕ Create User", use_container_width=True):
                 if not new_email or not new_pass:
