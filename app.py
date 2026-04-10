@@ -907,7 +907,7 @@ def admin_manage_users():
 
 def admin_po_track():
     st.title("🛒 Purchase Order (PO) Tracking")
-    st.caption("Admin-only access: Use this table to track and update Purchase Orders.")
+    st.caption("Admin-only access: Use 'Review Mode' for a highlighted overview or 'Edit Mode' to make changes.")
 
     df = db.get_po_track()
     
@@ -915,12 +915,12 @@ def admin_po_track():
     from config import PO_HEADERS, PO_UNITS
     for col in PO_HEADERS:
         if col not in df.columns:
-            df[col] = None  # Use None for empty instead of "" to avoid type errors
+            df[col] = None
     
     # Reorder columns
     df = df[PO_HEADERS]
 
-    # Convert types for compatibility with st.data_editor
+    # Convert types for date and number columns
     date_cols = ["PO Date", "Expected Delivery", "Follow-up Date", "Recived date"]
     for col in date_cols:
         df[col] = pd.to_datetime(df[col], errors='coerce')
@@ -929,39 +929,71 @@ def admin_po_track():
     for col in num_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # Editable Table
-    edited_df = st.data_editor(
-        df,
-        use_container_width=True,
-        num_rows="dynamic",
-        hide_index=True,
-        column_config={
-            "Unit": st.column_config.SelectboxColumn(
-                "Unit",
-                options=PO_UNITS,
-                default="GM"
-            ),
-            "PO Date": st.column_config.DateColumn("PO Date"),
-            "Expected Delivery": st.column_config.DateColumn("Expected Delivery"),
-            "Follow-up Date": st.column_config.DateColumn("Follow-up Date"),
-            "Recived date": st.column_config.DateColumn("Received date"),
-            "Ordered Qty(G)": st.column_config.NumberColumn("Ordered Qty(G)", step=0.01),
-            "Days to deliver": st.column_config.NumberColumn("Days to deliver", min_value=0, step=1),
-            "Status": st.column_config.SelectboxColumn(
-                "Status",
-                options=["ORDERED", "IN TRANSIT", "RECEIVED", "CANCELLED", "PENDING"]
-            )
-        },
-        key="po_track_editor"
-    )
+    # Define row-level styling for the Review tab
+    def style_po_rows(row):
+        status = str(row.get("Status", ""))
+        if "🟢 RECEIVED" in status:
+            return ['background-color: #f0fdf4; color: #0f766e;'] * len(row) # Light Green
+        elif "🟡 IN TRANSIT" in status:
+            return ['background-color: #fffbeb; color: #92400e;'] * len(row) # Light Yellow
+        elif "🔴 CANCELLED" in status:
+            return ['background-color: #fef2f2; color: #991b1b;'] * len(row) # Light Red
+        elif "🔵 PENDING" in status:
+            return ['background-color: #f0f9ff; color: #075985;'] * len(row) # Light Blue/Sky Blue
+        return [''] * len(row)
 
-    if st.button("💾 Save PO Tracking Data", type="primary", use_container_width=True):
-        ok, msg = db.save_po_track(edited_df)
-        if ok:
-            st.success(msg)
-            st.rerun()
+    tab_view, tab_edit = st.tabs(["🔍 Review Mode (Highlighted)", "✏️ Edit Spreadsheet"])
+
+    with tab_view:
+        if df.empty:
+            st.info("No PO tracking data available. Switch to **Edit Spreadsheet** to add records.")
         else:
-            st.error(msg)
+            # Apply styling and formatting for display
+            styled_df = df.style.apply(style_po_rows, axis=1)
+            
+            # Format date columns for clean display (e.g., 2024-04-10)
+            date_format = {col: lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else "" for col in date_cols}
+            styled_df = styled_df.format(date_format)
+            
+            st.dataframe(styled_df, use_container_width=True, height=600, hide_index=True)
+            st.caption(f"Showing {len(df)} tracking records. Rows are highlighted based on their current status.")
+
+    with tab_edit:
+        st.info("💡 **Tip:** Scroll to the bottom to add a new row. Remember to click **Save** after making changes.")
+        # Editable Table
+        edited_df = st.data_editor(
+            df,
+            use_container_width=True,
+            num_rows="dynamic",
+            hide_index=True,
+            column_config={
+                "Unit": st.column_config.SelectboxColumn(
+                    "Unit",
+                    options=PO_UNITS,
+                    default="GM"
+                ),
+                "PO Date": st.column_config.DateColumn("PO Date"),
+                "Expected Delivery": st.column_config.DateColumn("Expected Delivery"),
+                "Follow-up Date": st.column_config.DateColumn("Follow-up Date"),
+                "Recived date": st.column_config.DateColumn("Received date"),
+                "Ordered Qty(G)": st.column_config.NumberColumn("Ordered Qty(G)", step=0.01),
+                "Days to deliver": st.column_config.NumberColumn("Days to deliver", min_value=0, step=1),
+                "Status": st.column_config.SelectboxColumn(
+                    "Status",
+                    options=["🟡 IN TRANSIT", "🟢 RECEIVED", "🔴 CANCELLED", "🔵 PENDING"],
+                    default="🔵 PENDING"
+                )
+            },
+            key="po_track_editor"
+        )
+
+        if st.button("💾 Save PO Tracking Data", type="primary", use_container_width=True):
+            ok, msg = db.save_po_track(edited_df)
+            if ok:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
 
 def admin_vendors(is_admin=True):
     st.title("🏢 Suppliers & Vendors")
