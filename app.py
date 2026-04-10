@@ -905,6 +905,55 @@ def admin_manage_users():
                     st.session_state.admin_add_dept = ""
                     st.rerun()
 
+def admin_po_track():
+    st.title("🛒 Purchase Order (PO) Tracking")
+    st.caption("Admin-only access: Use this table to track and update Purchase Orders.")
+
+    df = db.get_po_track()
+    
+    # Ensure all headers exist in the DataFrame
+    from config import PO_HEADERS, PO_UNITS
+    for col in PO_HEADERS:
+        if col not in df.columns:
+            df[col] = ""
+    
+    # Reorder columns to match PO_HEADERS
+    df = df[PO_HEADERS]
+
+    # Editable Table
+    edited_df = st.data_editor(
+        df,
+        use_container_width=True,
+        num_rows="dynamic",
+        hide_index=True,
+        column_config={
+            "Unit": st.column_config.SelectboxColumn(
+                "Unit",
+                options=PO_UNITS,
+                default="GM"
+            ),
+            "PO Date": st.column_config.DateColumn("PO Date"),
+            "Expected Delivery": st.column_config.DateColumn("Expected Delivery"),
+            "Follow-up Date": st.column_config.DateColumn("Follow-up Date"),
+            "Recived date": st.column_config.DateColumn("Received date"),
+            "Ordered Qty(G)": st.column_config.NumberColumn("Ordered Qty(G)", step=0.01),
+            "Days to deliver": st.column_config.NumberColumn("Days to deliver", min_value=0, step=1),
+            "Status": st.column_config.SelectboxColumn(
+                "Status",
+                options=["ORDERED", "IN TRANSIT", "RECEIVED", "CANCELLED", "PENDING"]
+            )
+        },
+        key="po_track_editor"
+    )
+
+    if st.button("💾 Save PO Tracking Data", type="primary", use_container_width=True):
+        ok, msg = db.save_po_track(edited_df)
+        if ok:
+            st.success(msg)
+            st.rerun()
+        else:
+            st.error(msg)
+
 def admin_vendors(is_admin=True):
     st.title("🏢 Suppliers & Vendors")
     
