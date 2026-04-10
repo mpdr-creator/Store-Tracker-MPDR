@@ -911,14 +911,23 @@ def admin_po_track():
 
     df = db.get_po_track()
     
-    # Ensure all headers exist in the DataFrame
+    # Ensure all headers exist and have correct types for the editor
     from config import PO_HEADERS, PO_UNITS
     for col in PO_HEADERS:
         if col not in df.columns:
-            df[col] = ""
+            df[col] = None  # Use None for empty instead of "" to avoid type errors
     
-    # Reorder columns to match PO_HEADERS
+    # Reorder columns
     df = df[PO_HEADERS]
+
+    # Convert types for compatibility with st.data_editor
+    date_cols = ["PO Date", "Expected Delivery", "Follow-up Date", "Recived date"]
+    for col in date_cols:
+        df[col] = pd.to_datetime(df[col], errors='coerce')
+    
+    num_cols = ["Ordered Qty(G)", "Days to deliver"]
+    for col in num_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
 
     # Editable Table
     edited_df = st.data_editor(
