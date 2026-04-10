@@ -953,13 +953,10 @@ def admin_po_track():
             
             display_df = df.copy()
             if search_po:
-                # Filter logic for specific columns
-                mask = (
-                    display_df["PO Number"].astype(str).str.contains(search_po, case=False, na=False) |
-                    display_df["PR Number"].astype(str).str.contains(search_po, case=False, na=False) |
-                    display_df["Material Name"].astype(str).str.contains(search_po, case=False, na=False) |
-                    display_df["CAS number"].astype(str).str.contains(search_po, case=False, na=False)
-                )
+                # Robust global search across all columns
+                mask = display_df.astype(str).apply(
+                    lambda row: row.str.contains(search_po, case=False, na=False)
+                ).any(axis=1)
                 display_df = display_df[mask]
 
             # Apply styling and formatting for display
