@@ -11,8 +11,8 @@ from google.oauth2.service_account import Credentials
 import streamlit as st
 from config import (
     SCOPES, SPREADSHEET_NAME, SHARE_EMAIL,
-    WS_INVENTORY, WS_LEDGER, WS_REQUESTS, WS_USERS, WS_VENDORS,
-    INVENTORY_HEADERS, LEDGER_HEADERS, REQUESTS_HEADERS, USERS_HEADERS, VENDOR_HEADERS,
+    WS_INVENTORY, WS_LEDGER, WS_REQUESTS, WS_USERS, WS_VENDORS, WS_PO_TRACK,
+    INVENTORY_HEADERS, LEDGER_HEADERS, REQUESTS_HEADERS, USERS_HEADERS, VENDOR_HEADERS, PO_HEADERS,
 )
 
 # ── Singleton-ish client cache ──────────────────
@@ -142,6 +142,7 @@ def initialize_database():
     _ensure_worksheet(sh, WS_REQUESTS, REQUESTS_HEADERS)
     _ensure_worksheet(sh, WS_USERS, USERS_HEADERS)
     _ensure_worksheet(sh, WS_VENDORS, VENDOR_HEADERS)
+    _ensure_worksheet(sh, WS_PO_TRACK, PO_HEADERS)
 
     return True, "Database ready."
 
@@ -441,3 +442,23 @@ def delete_user(user_id):
     except Exception as e:
          return False, f"Error deleting user: {e}"
     return False, "User not found."
+
+
+# ── PO Tracking ────────────────────────────────
+def get_po_track():
+    """Return all PO tracking records as a DataFrame."""
+    return _all_records(WS_PO_TRACK)
+
+
+def save_po_track(df):
+    """Overwrite the PO tracking worksheet with the given DataFrame."""
+    try:
+        ws = _ws(WS_PO_TRACK)
+        # Clear existing data except headers
+        ws.clear()
+        # Update with new data (including headers)
+        data = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
+        ws.update(data)
+        return True, "PO Tracking data saved successfully."
+    except Exception as e:
+        return False, f"Error saving PO data: {e}"
