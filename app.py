@@ -948,16 +948,28 @@ def admin_po_track():
         if df.empty:
             st.info("No PO tracking data available. Switch to **Edit Spreadsheet** to add records.")
         else:
-            # Search Bar specifically for Review Mode
-            search_po = st.text_input("🔍 Search PO / PR / Material / CAS", placeholder="Enter search term...", key="po_search_input")
+            # Search and Filter row
+            c1, c2 = st.columns([2, 1])
+            with c1:
+                search_po = st.text_input("🔍 Search PO / PR / Material / CAS", placeholder="Enter search term...", key="po_search_input")
+            with c2:
+                status_options = ["🟡 IN TRANSIT", "🟢 RECEIVED", "🔴 CANCELLED", "🔵 PENDING"]
+                filter_status = st.multiselect("Filter by Status", status_options, default=status_options, key="po_status_filter")
             
             display_df = df.copy()
+            
+            # 1. Apply Search Filter
             if search_po:
-                # Robust global search across all columns
                 mask = display_df.astype(str).apply(
                     lambda row: row.str.contains(search_po, case=False, na=False)
                 ).any(axis=1)
                 display_df = display_df[mask]
+            
+            # 2. Apply Status Filter
+            if filter_status:
+                display_df = display_df[display_df["Status"].isin(filter_status)]
+            elif not filter_status:
+                display_df = display_df.iloc[0:0] # Show nothing if no status selected
 
             # Apply styling and formatting for display
             styled_df = display_df.style.apply(style_po_rows, axis=1)
