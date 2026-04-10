@@ -92,6 +92,7 @@ st.markdown("""
     .stSidebar button:has(div:contains("Submit Request"))::before { content: "\f1d8"; }
     .stSidebar button:has(div:contains("My Requests"))::before { content: "\f0ae"; }
     .stSidebar button:has(div:contains("Analytics"))::before { content: "\f200"; }
+    .stSidebar button:has(div:contains("PO Track"))::before { content: "\f570"; }
     .stSidebar button:has(div:contains("Logout"))::before { content: "\f2f5"; }
 
 
@@ -251,7 +252,7 @@ def _display_store_timings():
 # ── Imports (after st.set_page_config) ──────────
 import db
 import auth
-from config import DEPARTMENTS, ROLES, TRANSACTION_TYPES
+from config import DEPARTMENTS, ROLES, TRANSACTION_TYPES, PO_HEADERS, PO_UNITS
 
 # ── Database init ───────────────────────────────
 if "db_ready" not in st.session_state:
@@ -303,6 +304,7 @@ if role == "Admin":
         ("Add Stock", "fa-solid fa-plus-circle"),
         ("Requests", "fa-solid fa-clipboard-check"),
         ("Ledger", "fa-solid fa-book"),
+        ("PO Track", "fa-solid fa-file-invoice"),
         ("Manage Users", "fa-solid fa-users-gear"),
         ("Suppliers / Vendors", "fa-solid fa-truck-field")
     ]
@@ -1270,6 +1272,8 @@ if role == "Admin":
         admin_ledger()
     elif page == "Manage Users":
         admin_manage_users()
+    elif page == "PO Track":
+        admin_po_track()
     elif page == "Suppliers / Vendors":
         admin_vendors(is_admin=True)
 
