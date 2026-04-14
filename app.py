@@ -504,7 +504,6 @@ def admin_dashboard():
             df_template["Material Name.1"] = df_template.get("Material_Name", "")
             df_template["CAS no"] = df_template.get("CAS_No", "")
             df_template["manufacturer"] = df_template.get("Manufacturer", "")
-            df_template["Quantity"] = df_template.get("Pack_Size", "")
             df_template["Updated by"] = df_template.get("Approved / issued by", "")
 
             rename_map = {
@@ -516,7 +515,7 @@ def admin_dashboard():
 
             final_columns = [
                 'S.No', 'Date', 'Unique Name', 'Material Type', 'Material Name', 
-                'Grade/Purity', 'CAS No', 'Manufacturer', 'Quantity', 'Units', 
+                'Grade/Purity', 'CAS No', 'Manufacturer', 'Units', 
                 'Opening Stock', 'Received Qty', 'Available quantity/ stock', 
                 'Requested Dept', 'Requested Person', 'Material Name.1', 'CAS no', 
                 'manufacturer', 'Material Quantity', 'Approved / issued by', 
@@ -567,7 +566,6 @@ def admin_inventory():
             material_name = c2.text_input("Full Material Name *", placeholder="e.g. Acetone 99% AR Grade")
             cas = c1.text_input("CAS Number", placeholder="e.g. 67-64-1")
             grade = c2.text_input("Grade / Purity", placeholder="e.g. 99%, AR Grade")
-            pack_size = c1.text_input("Quantity / Pack Size", placeholder="e.g. 500mL, 1KG")
             units = c2.selectbox("Units", ["g", "mg", "kg", "mL", "L", "units", "pcs"])
             
             c3, c4 = st.columns(2)
@@ -583,7 +581,7 @@ def admin_inventory():
                 else:
                     item_id = db.add_item(
                         unique_name, material_name, cas, grade,
-                        manufacturer, units, opening, min_stock, mat_type, pack_size, updated_by=email,
+                        manufacturer, units, opening, min_stock, mat_type, updated_by=email,
                     )
                     st.success(f"✅ Item added: **{unique_name}** (ID: {item_id})")
                     _load_inventory_with_stock.clear()
@@ -612,7 +610,6 @@ def admin_inventory():
                     new_mat = c2.text_input("Material Name", value=str(item_row.get("Material_Name", "")))
                     new_cas = c1.text_input("CAS Number", value=str(item_row.get("CAS_No", "")))
                     new_grade = c2.text_input("Grade/Purity", value=str(item_row.get("Grade_Purity", "")))
-                    new_pack = c1.text_input("Quantity / Pack Size", value=str(item_row.get("Pack_Size", "")))
                     new_units = c2.text_input("Units", value=str(item_row.get("Units", "")))
                     
                     MAT_TYPES = ["Solvents", "Chemicals", "Reagents", "Buffers", "Standards", "Lab Consumbles", "Others"]
@@ -638,7 +635,6 @@ def admin_inventory():
                             "Manufacturer": new_mfr,
                             "Units": new_units,
                             "Material_Type": new_type,
-                            "Pack_Size": new_pack,
                             "Min_Stock": new_min,
                         })
                         st.success("Item updated!")
