@@ -217,6 +217,14 @@ STATUS_PALETTE = {
     "info": {"bg": "#f0f9ff", "text": "#075985"}
 }
 
+def format_2_decimals(val):
+    try:
+        if val == "" or pd.isna(val):
+            return val
+        return f"{float(val):.2f}"
+    except (ValueError, TypeError):
+        return val
+
 def _get_plotly_layout(title):
     """Consistent Modern Layout for Plotly Charts."""
     return dict(
@@ -421,7 +429,11 @@ def admin_dashboard():
                 return styles
 
 
-            styled = display_df.style.format({"Available_Stock": "{:.2f}"}).apply(highlight_row, axis=1)
+            styled = display_df.style.format({
+                "Available_Stock": format_2_decimals,
+                "Min_Stock": format_2_decimals,
+                "Pack_Size": format_2_decimals
+            }).apply(highlight_row, axis=1)
             st.dataframe(styled, use_container_width=True, height=500, hide_index=True)
         else:
             st.info("No items in inventory yet. Use **Inventory** page to add items.")
@@ -527,7 +539,13 @@ def admin_dashboard():
                 if c not in df_template.columns: df_template[c] = ""
                     
             df_final = df_template[final_columns].copy()
-            st.dataframe(df_final, use_container_width=True, height=500, hide_index=True)
+            format_cols = [
+                'Opening Stock', 'Received Qty', 'Available quantity/ stock', 'Material Quantity',
+                'Remaining Stock/Quantity', 'Total consumed quantity (day wise)', 
+                'Total Wastage Quantity (day wise)', 'Remaining Stock'
+            ]
+            format_dict = {col: format_2_decimals for col in format_cols if col in df_final.columns}
+            st.dataframe(df_final.style.format(format_dict), use_container_width=True, height=500, hide_index=True)
             
             csv = df_final.to_csv(index=False).encode('utf-8')
             st.download_button("📥 Export Logbook (CSV Format)", data=csv, file_name=f"Daily_Logbook_{target_date}.csv", mime="text/csv")
@@ -549,11 +567,14 @@ def admin_inventory():
             display_inv = inv.copy()
             display_inv.insert(0, "S.No", range(1, len(display_inv) + 1))
             st.dataframe(
-                display_inv, 
+                display_inv.style.format({
+                    "Available_Stock": format_2_decimals,
+                    "Min_Stock": format_2_decimals,
+                    "Pack_Size": format_2_decimals
+                }), 
                 use_container_width=True, 
                 height=500,
-                hide_index=True,
-                column_config={"Available_Stock": st.column_config.NumberColumn(format="%.2f")}
+                hide_index=True
             )
         else:
             st.info("Inventory is empty.")
@@ -839,7 +860,7 @@ def admin_requests():
             
             display_df.insert(0, "S.No", range(1, len(display_df) + 1))
 
-            st.dataframe(display_df, use_container_width=True, height=400, hide_index=True)
+            st.dataframe(display_df.style.format({"Quantity": format_2_decimals}), use_container_width=True, height=400, hide_index=True)
             st.download_button("📥 Export CSV", data=display_df.to_csv(index=False).encode('utf-8'), file_name="requests_export.csv", mime="text/csv")
         else:
             st.info("No requests yet.")
@@ -885,7 +906,7 @@ def admin_ledger():
     display_df = filtered[[c for c in cols_to_show if c in filtered.columns]].copy()
     display_df.insert(0, "S.No", range(1, len(display_df) + 1))
 
-    st.dataframe(display_df, use_container_width=True, height=500, hide_index=True)
+    st.dataframe(display_df.style.format({"Quantity": format_2_decimals}), use_container_width=True, height=500, hide_index=True)
     st.caption(f"Showing {len(filtered)} entries")
     st.download_button("📥 Export Ledger CSV", data=filtered.to_csv(index=False).encode('utf-8'), file_name="ledger_export.csv", mime="text/csv")
 
@@ -1035,8 +1056,10 @@ def admin_po_track():
             styled_df = display_df.style.apply(style_po_rows, axis=1)
             
             # Format date columns for clean display
-            date_format = {col: lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else "" for col in date_cols}
-            styled_df = styled_df.format(date_format)
+            fmt_dict = {col: lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else "" for col in date_cols}
+            if "Ordered Qty(G)" in display_df.columns:
+                fmt_dict["Ordered Qty(G)"] = format_2_decimals
+            styled_df = styled_df.format(fmt_dict)
             
             st.dataframe(styled_df, use_container_width=True, height=600, hide_index=True)
             st.caption(f"Showing {len(display_df)} records. Rows are highlighted based on their current status.")
@@ -1059,7 +1082,7 @@ def admin_po_track():
                 "Expected Delivery": st.column_config.DateColumn("Expected Delivery"),
                 "Follow-up Date": st.column_config.DateColumn("Follow-up Date"),
                 "Recived date": st.column_config.DateColumn("Received date"),
-                "Ordered Qty(G)": st.column_config.NumberColumn("Ordered Qty(G)", step=0.01),
+                "Ordered Qty(G)": st.column_config.NumberColumn("Ordered Qty(G)", step=0.01, format="%.2f"),
                 "Days to deliver": st.column_config.NumberColumn("Days to deliver", min_value=0, step=1),
                 "Status": st.column_config.SelectboxColumn(
                     "Status",
@@ -1192,7 +1215,11 @@ def scientist_stock_viewer():
 
 
 
-    styled = show_df.style.format({"Available_Stock": "{:.2f}"}).apply(color_row, axis=1)
+    styled = show_df.style.format({
+        "Available_Stock": format_2_decimals,
+        "Min_Stock": format_2_decimals,
+        "Pack_Size": format_2_decimals
+    }).apply(color_row, axis=1)
     st.dataframe(styled, use_container_width=True, height=500, hide_index=True)
     st.caption(f"Showing {len(show_df)} items")
 
@@ -1300,7 +1327,7 @@ def scientist_my_requests():
     req_cols = [c for c in cols if c in reqs.columns]
     display_reqs = reqs[req_cols].copy()
     display_reqs.insert(0, "S.No", range(1, len(display_reqs) + 1))
-    styled = display_reqs.style.map(status_color, subset=["Status"])
+    styled = display_reqs.style.map(status_color, subset=["Status"]).format({"Quantity": format_2_decimals})
     st.dataframe(styled, use_container_width=True, height=400, hide_index=True)
 
 
