@@ -393,7 +393,7 @@ def admin_dashboard():
         st.subheader("📋 Full Inventory")
         if not inv.empty:
             display_cols = ["Item_ID", "Unique_Name", "Material_Name", "CAS_No",
-                            "Grade_Purity", "Manufacturer", "Units", "Min_Stock", "Status", "Available_Stock"]
+                            "Grade_Purity", "Manufacturer", "Units", "Pack_Size", "Min_Stock", "Status", "Available_Stock"]
             display_df = inv[[c for c in display_cols if c in inv.columns]].copy()
             display_df.insert(0, "S.No", range(1, len(display_df) + 1))
 
@@ -567,6 +567,7 @@ def admin_inventory():
             cas = c1.text_input("CAS Number", placeholder="e.g. 67-64-1")
             grade = c2.text_input("Grade / Purity", placeholder="e.g. 99%, AR Grade")
             units = c2.selectbox("Units", ["g", "mg", "kg", "mL", "L", "units", "pcs"])
+            pack_size = c1.text_input("Pack Size", placeholder="e.g. 100ml, 500g")
             
             c3, c4 = st.columns(2)
             mat_type = c3.selectbox("Material Type", ["Solvents", "Chemicals", "Reagents", "Buffers", "Standards", "Lab Consumbles", "Others"])
@@ -581,7 +582,7 @@ def admin_inventory():
                 else:
                     item_id = db.add_item(
                         unique_name, material_name, cas, grade,
-                        manufacturer, units, opening, min_stock, mat_type, updated_by=email,
+                        manufacturer, units, opening, min_stock, mat_type, pack_size=pack_size, updated_by=email,
                     )
                     st.success(f"✅ Item added: **{unique_name}** (ID: {item_id})")
                     _load_inventory_with_stock.clear()
@@ -611,6 +612,7 @@ def admin_inventory():
                     new_cas = c1.text_input("CAS Number", value=str(item_row.get("CAS_No", "")))
                     new_grade = c2.text_input("Grade/Purity", value=str(item_row.get("Grade_Purity", "")))
                     new_units = c2.text_input("Units", value=str(item_row.get("Units", "")))
+                    new_pack_size = c1.text_input("Pack Size", value=str(item_row.get("Pack_Size", "")))
                     
                     MAT_TYPES = ["Solvents", "Chemicals", "Reagents", "Buffers", "Standards", "Lab Consumbles", "Others"]
                     c3, c4 = st.columns(2)
@@ -635,9 +637,7 @@ def admin_inventory():
                             "Manufacturer": new_mfr,
                             "Units": new_units,
                             "Material_Type": new_type,
-                            "Manufacturer": new_mfr,
-                            "Units": new_units,
-                            "Material_Type": new_type,
+                            "Pack_Size": new_pack_size,
                             "Min_Stock": new_min,
                         })
                         st.success("Item details updated!")
@@ -1164,7 +1164,7 @@ def scientist_stock_viewer():
 
     # Show table
     cols_to_show = ["Item_ID", "Unique_Name", "Material_Name", "CAS_No", "Grade_Purity",
-                    "Manufacturer", "Units", "Min_Stock", "Status", "Available_Stock"]
+                    "Manufacturer", "Units", "Pack_Size", "Min_Stock", "Status", "Available_Stock"]
     show_df = display[[c for c in cols_to_show if c in display.columns]].copy()
     show_df.insert(0, "S.No", range(1, len(show_df) + 1))
 
