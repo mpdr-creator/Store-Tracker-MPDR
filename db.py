@@ -277,7 +277,7 @@ def get_all_items():
 
 
 def add_item(unique_name, material_name, cas_no, grade, manufacturer, units,
-             opening_stock=0.0, min_stock=5.0, material_type="", pack_size="", updated_by="system"):
+             opening_stock=0.0, min_stock=5.0, material_type="", updated_by="system"):
     """Add item to Inventory_Master and create an OPENING ledger entry."""
     item_id = generate_id(6)
     _append(WS_INVENTORY, {
@@ -290,7 +290,6 @@ def add_item(unique_name, material_name, cas_no, grade, manufacturer, units,
         "Units": units,
         "Min_Stock": min_stock,
         "Material_Type": material_type,
-        "Pack_Size": pack_size,
     })
     if opening_stock > 0:
         add_ledger_entry(item_id, "OPENING", opening_stock, updated_by=updated_by)
