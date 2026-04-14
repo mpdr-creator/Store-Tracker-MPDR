@@ -67,9 +67,9 @@ def login_page():
         st.markdown(
             """
             <div style="text-align:center; margin-top:40px; margin-bottom: 20px;">
-                <h1 style="font-family: 'Montserrat', sans-serif; color: #1e293b; margin-bottom:0; font-size: 2.5rem;">
+                <div style="font-family: 'Montserrat', sans-serif; color: #1e293b; margin-bottom:0; font-size: 2.5rem; font-weight: 700;">
                     <span style="color: #10b981;">📦</span> Store Tracker
-                </h1>
+                </div>
                 <p style="color: #64748b; font-family: 'Inter', sans-serif; font-size: 1.1rem; font-weight: 500;">
                     MPDR Chemical Inventory Management
                 </p>
