@@ -895,6 +895,7 @@ def admin_ledger():
 
     filtered = ledger[ledger["Transaction_Type"].isin(txn_filter)]
 
+    if item_search:
         if not inv.empty:
             item_search = item_search.lower().strip()
             mask_items = (
