@@ -86,15 +86,13 @@ def reset_connection():
 
 # ── Initialisation ─────────────────────────────
 def _ensure_worksheet(sh, name, headers, existing_worksheets=None):
-    """Create worksheet with headers if it doesn't exist. Optimized to use existing worksheet list. Returns (ws, created_new)"""
+    """Create worksheet with headers if it doesn't exist. Optimized to use existing worksheet list."""
     if existing_worksheets is None:
         existing_worksheets = call_with_retry(sh.worksheets)
         
     ws_map = {ws.title: ws for ws in existing_worksheets}
     
-    created_new = False
     if name not in ws_map:
-        created_new = True
         # Rename Sheet1 for the first custom worksheet if it exists
         if name == WS_INVENTORY and "Sheet1" in ws_map:
             ws = ws_map["Sheet1"]
@@ -119,7 +117,7 @@ def _ensure_worksheet(sh, name, headers, existing_worksheets=None):
                     pass
                 for idx, m_head in enumerate(missing):
                     call_with_retry(ws.update_cell, 1, len(first_row) + idx + 1, m_head)
-    return ws, created_new
+    return ws
 
 
 
@@ -168,21 +166,12 @@ def initialize_database():
     except Exception as e:
         return False, f"Failed to list worksheets: {e}"
 
-    # Define worksheets to ensure
-    worksheets_to_init = [
-        (WS_INVENTORY, INVENTORY_HEADERS),
-        (WS_LEDGER, LEDGER_HEADERS),
-        (WS_REQUESTS, REQUESTS_HEADERS),
-        (WS_USERS, USERS_HEADERS),
-        (WS_VENDORS, VENDOR_HEADERS),
-        (WS_PO_TRACK, PO_HEADERS)
-    ]
-
-    for name, headers in worksheets_to_init:
-        _, created = _ensure_worksheet(sh, name, headers, existing_ws)
-        if created:
-            # Refresh cache if a new sheet was added to avoid staleness in next iteration
-            existing_ws = call_with_retry(sh.worksheets)
+    _ensure_worksheet(sh, WS_INVENTORY, INVENTORY_HEADERS, existing_ws)
+    _ensure_worksheet(sh, WS_LEDGER, LEDGER_HEADERS, existing_ws)
+    _ensure_worksheet(sh, WS_REQUESTS, REQUESTS_HEADERS, existing_ws)
+    _ensure_worksheet(sh, WS_USERS, USERS_HEADERS, existing_ws)
+    _ensure_worksheet(sh, WS_VENDORS, VENDOR_HEADERS, existing_ws)
+    _ensure_worksheet(sh, WS_PO_TRACK, PO_HEADERS, existing_ws)
 
 
     return True, "Database ready."
@@ -239,17 +228,7 @@ def _update_cell_by_id(name, id_col, id_val, updates: dict):
     headers = call_with_retry(ws.row_values, 1)
 
     for i, rec in enumerate(records):
-        db_val = str(rec.get(id_col)).strip()
-        search_val = str(id_val).strip()
-        
-        # Email comparison is case-insensitive
-        match = False
-        if id_col.lower() == "email":
-            match = db_val.lower() == search_val.lower()
-        else:
-            match = db_val == search_val
-
-        if match:
+        if str(rec.get(id_col)) == str(id_val):
             row_idx = i + 2  # +1 header, +1 zero-index
             for col_name, new_val in updates.items():
                 if col_name in headers:
@@ -486,19 +465,17 @@ def get_users():
 
 
 def get_user(email):
-    if not email: return None
     df = get_users()
     if df.empty:
         return None
-    email_clean = str(email).strip().lower()
-    match = df[df["Email"].str.strip().str.lower() == email_clean]
+    match = df[df["Email"] == email]
     return match.iloc[0] if not match.empty else None
 
 
 def add_user(email, password_hash, role, department=""):
     _append(WS_USERS, {
         "UserID": generate_id(6),
-        "Email": str(email).strip().lower(),
+        "Email": email,
         "Password_Hash": password_hash,
         "Role": role,
         "Department": department,
@@ -507,7 +484,7 @@ def add_user(email, password_hash, role, department=""):
 
 def update_password(email, new_hash):
     """Update password hash for existing user."""
-    return _update_cell_by_id(WS_USERS, "Email", str(email).strip().lower(), {"Password_Hash": new_hash})
+    return _update_cell_by_id(WS_USERS, "Email", email, {"Password_Hash": new_hash})
 
 
 def delete_user(user_id):
