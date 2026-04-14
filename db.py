@@ -1,6 +1,7 @@
 # ──────────────────────────────────────────────
 # Store Tracker — Database (Google Sheets) Layer
 # ──────────────────────────────────────────────
+import time
 import os
 import random
 import string
@@ -14,6 +15,21 @@ from config import (
     WS_INVENTORY, WS_LEDGER, WS_REQUESTS, WS_USERS, WS_VENDORS, WS_PO_TRACK,
     INVENTORY_HEADERS, LEDGER_HEADERS, REQUESTS_HEADERS, USERS_HEADERS, VENDOR_HEADERS, PO_HEADERS,
 )
+
+def call_with_retry(func, *args, **kwargs):
+    """Wrapper to retry API calls on quota errors."""
+    max_retries = 3
+    for i in range(max_retries):
+        try:
+            return func(*args, **kwargs)
+        except gspread.exceptions.APIError as e:
+            err_msg = str(e).lower()
+            if i < max_retries - 1 and ("quota" in err_msg or "429" in err_msg or "exhausted" in err_msg):
+                time.sleep(3 * (i + 1)) # Wait 3s, 6s...
+                continue
+            raise e
+    return None
+
 
 # ── Singleton-ish client cache ──────────────────
 _client = None
@@ -69,34 +85,40 @@ def reset_connection():
 
 
 # ── Initialisation ─────────────────────────────
-def _ensure_worksheet(sh, name, headers):
-    """Create worksheet with headers if it doesn't exist."""
-    existing = [ws.title for ws in sh.worksheets()]
-    if name not in existing:
-        # Rename Sheet1 for the first custom worksheet
-        if name == WS_INVENTORY and "Sheet1" in existing:
-            ws = sh.worksheet("Sheet1")
-            ws.update_title(name)
+def _ensure_worksheet(sh, name, headers, existing_worksheets=None):
+    """Create worksheet with headers if it doesn't exist. Optimized to use existing worksheet list."""
+    if existing_worksheets is None:
+        existing_worksheets = call_with_retry(sh.worksheets)
+        
+    ws_map = {ws.title: ws for ws in existing_worksheets}
+    
+    if name not in ws_map:
+        # Rename Sheet1 for the first custom worksheet if it exists
+        if name == WS_INVENTORY and "Sheet1" in ws_map:
+            ws = ws_map["Sheet1"]
+            call_with_retry(ws.update_title, name)
         else:
-            ws = sh.add_worksheet(title=name, rows=2000, cols=len(headers) + 2)
-        ws = sh.worksheet(name)
-        ws.append_row(headers)
+            ws = call_with_retry(sh.add_worksheet, title=name, rows=2000, cols=len(headers) + 2)
+        
+        # Freshly created, so append headers
+        call_with_retry(ws.append_row, headers)
     else:
-        ws = sh.worksheet(name)
-        # Ensure headers are present
-        first_row = ws.row_values(1)
+        ws = ws_map[name]
+        # Only check headers if the sheet exists (don't over-read if we just created it)
+        first_row = call_with_retry(ws.row_values, 1)
         if not first_row:
-            ws.append_row(headers)
+            call_with_retry(ws.append_row, headers)
         else:
             missing = [h for h in headers if h not in first_row]
             if missing:
                 try:
-                    ws.add_cols(len(missing) + 2)
+                    call_with_retry(ws.add_cols, len(missing) + 2)
                 except Exception:
                     pass
                 for idx, m_head in enumerate(missing):
-                    ws.update_cell(1, len(first_row) + idx + 1, m_head)
+                    call_with_retry(ws.update_cell, 1, len(first_row) + idx + 1, m_head)
     return ws
+
 
 
 def initialize_database():
@@ -106,15 +128,16 @@ def initialize_database():
         return False, "Could not initialise Google Sheets client. Check credentials.json."
 
     try:
-        sh = client.open(SPREADSHEET_NAME)
+        sh = call_with_retry(client.open, SPREADSHEET_NAME)
     except gspread.SpreadsheetNotFound:
         try:
-            sh = client.create(SPREADSHEET_NAME)
+            sh = call_with_retry(client.create, SPREADSHEET_NAME)
             try:
-                sh.share(SHARE_EMAIL, perm_type="user", role="writer")
+                call_with_retry(sh.share, SHARE_EMAIL, perm_type="user", role="writer")
             except Exception:
                 pass
         except Exception as e:
+
             # Try to get email for quota error message
             try:
                 if "gcp_service_account" in st.secrets:
@@ -137,12 +160,19 @@ def initialize_database():
     global _spreadsheet
     _spreadsheet = sh
 
-    _ensure_worksheet(sh, WS_INVENTORY, INVENTORY_HEADERS)
-    _ensure_worksheet(sh, WS_LEDGER, LEDGER_HEADERS)
-    _ensure_worksheet(sh, WS_REQUESTS, REQUESTS_HEADERS)
-    _ensure_worksheet(sh, WS_USERS, USERS_HEADERS)
-    _ensure_worksheet(sh, WS_VENDORS, VENDOR_HEADERS)
-    _ensure_worksheet(sh, WS_PO_TRACK, PO_HEADERS)
+    # Optimize: Fetch all worksheets once
+    try:
+        existing_ws = call_with_retry(sh.worksheets)
+    except Exception as e:
+        return False, f"Failed to list worksheets: {e}"
+
+    _ensure_worksheet(sh, WS_INVENTORY, INVENTORY_HEADERS, existing_ws)
+    _ensure_worksheet(sh, WS_LEDGER, LEDGER_HEADERS, existing_ws)
+    _ensure_worksheet(sh, WS_REQUESTS, REQUESTS_HEADERS, existing_ws)
+    _ensure_worksheet(sh, WS_USERS, USERS_HEADERS, existing_ws)
+    _ensure_worksheet(sh, WS_VENDORS, VENDOR_HEADERS, existing_ws)
+    _ensure_worksheet(sh, WS_PO_TRACK, PO_HEADERS, existing_ws)
+
 
     return True, "Database ready."
 
@@ -158,15 +188,17 @@ def generate_id(length=6):
 def _ws(name):
     """Get a worksheet handle."""
     sh = _get_spreadsheet()
-    return sh.worksheet(name)
+    return call_with_retry(sh.worksheet, name)
+
 
 
 def _all_records(name):
     """Return all records from a worksheet as a DataFrame."""
     try:
         ws = _ws(name)
-        data = ws.get_all_records()
-        df = pd.DataFrame(data) if data else pd.DataFrame(columns=ws.row_values(1))
+        data = call_with_retry(ws.get_all_records)
+        df = pd.DataFrame(data) if data else pd.DataFrame(columns=call_with_retry(ws.row_values, 1))
+
         
         # Force string types on identifiers to prevent numeric inference bugs
         str_cols = ["Item_ID", "Unique_Name", "Material_Name", "Request_ID", "Reference_ID", "UserID", "CAS_No"]
@@ -183,23 +215,26 @@ def _all_records(name):
 def _append(name, row_dict):
     """Append one row dict to a worksheet."""
     ws = _ws(name)
-    headers = ws.row_values(1)
+    headers = call_with_retry(ws.row_values, 1)
     row = [str(row_dict.get(h, "")) for h in headers]
-    ws.append_row(row, value_input_option="USER_ENTERED")
+    call_with_retry(ws.append_row, row, value_input_option="USER_ENTERED")
+
 
 
 def _update_cell_by_id(name, id_col, id_val, updates: dict):
     """Update one or more columns in the row matched by id_col == id_val."""
     ws = _ws(name)
-    records = ws.get_all_records()
-    headers = ws.row_values(1)
+    records = call_with_retry(ws.get_all_records)
+    headers = call_with_retry(ws.row_values, 1)
+
     for i, rec in enumerate(records):
         if str(rec.get(id_col)) == str(id_val):
             row_idx = i + 2  # +1 header, +1 zero-index
             for col_name, new_val in updates.items():
                 if col_name in headers:
                     col_idx = headers.index(col_name) + 1
-                    ws.update_cell(row_idx, col_idx, str(new_val))
+                    call_with_retry(ws.update_cell, row_idx, col_idx, str(new_val))
+
             return True
     return False
 
@@ -222,10 +257,11 @@ def add_vendor(company_name, contact, email, notes):
 def delete_vendor(vendor_id):
     ws = _ws(WS_VENDORS)
     try:
-        records = ws.get_all_records()
+        records = call_with_retry(ws.get_all_records)
         for idx, row in enumerate(records):
             if str(row.get("Vendor_ID")) == str(vendor_id):
-                ws.delete_rows(idx + 2)
+                call_with_retry(ws.delete_rows, idx + 2)
+
                 return True, "Vendor deleted."
     except Exception as e:
          pass
@@ -434,10 +470,11 @@ def delete_user(user_id):
     """Delete a user from the database."""
     ws = _ws(WS_USERS)
     try:
-        records = ws.get_all_records()
+        records = call_with_retry(ws.get_all_records)
         for idx, row in enumerate(records):
             if str(row.get("UserID")) == str(user_id):
-                ws.delete_rows(idx + 2)  # +1 header, +1 zero-index
+                call_with_retry(ws.delete_rows, idx + 2)  # +1 header, +1 zero-index
+
                 return True, "User deleted."
     except Exception as e:
          return False, f"Error deleting user: {e}"
@@ -462,7 +499,8 @@ def save_po_track(df):
         ws = _ensure_worksheet(sh, WS_PO_TRACK, PO_HEADERS)
         
         # Clear existing data
-        ws.clear()
+        call_with_retry(ws.clear)
+
         
         # Prepare data: convert everything to string and handle NaN/NaT/None
         # because JSON serialiser (used by gspread) crashes on 'nan' floats.
@@ -493,7 +531,8 @@ def save_po_track(df):
             cleaned_data.append(clean_row)
         
         # Standard gspread update requires a range or a named parameter 'values'
-        ws.update("A1", cleaned_data)
+        call_with_retry(ws.update, "A1", cleaned_data)
+
         return True, "PO Tracking data saved successfully."
     except Exception as e:
         return False, f"Error saving PO data: {e}"
