@@ -86,13 +86,15 @@ def reset_connection():
 
 # ── Initialisation ─────────────────────────────
 def _ensure_worksheet(sh, name, headers, existing_worksheets=None):
-    """Create worksheet with headers if it doesn't exist. Optimized to use existing worksheet list."""
+    """Create worksheet with headers if it doesn't exist. Optimized to use existing worksheet list. Returns (ws, created_new)"""
     if existing_worksheets is None:
         existing_worksheets = call_with_retry(sh.worksheets)
         
     ws_map = {ws.title: ws for ws in existing_worksheets}
     
+    created_new = False
     if name not in ws_map:
+        created_new = True
         # Rename Sheet1 for the first custom worksheet if it exists
         if name == WS_INVENTORY and "Sheet1" in ws_map:
             ws = ws_map["Sheet1"]
@@ -117,7 +119,7 @@ def _ensure_worksheet(sh, name, headers, existing_worksheets=None):
                     pass
                 for idx, m_head in enumerate(missing):
                     call_with_retry(ws.update_cell, 1, len(first_row) + idx + 1, m_head)
-    return ws
+    return ws, created_new
 
 
 
@@ -166,12 +168,21 @@ def initialize_database():
     except Exception as e:
         return False, f"Failed to list worksheets: {e}"
 
-    _ensure_worksheet(sh, WS_INVENTORY, INVENTORY_HEADERS, existing_ws)
-    _ensure_worksheet(sh, WS_LEDGER, LEDGER_HEADERS, existing_ws)
-    _ensure_worksheet(sh, WS_REQUESTS, REQUESTS_HEADERS, existing_ws)
-    _ensure_worksheet(sh, WS_USERS, USERS_HEADERS, existing_ws)
-    _ensure_worksheet(sh, WS_VENDORS, VENDOR_HEADERS, existing_ws)
-    _ensure_worksheet(sh, WS_PO_TRACK, PO_HEADERS, existing_ws)
+    # Define worksheets to ensure
+    worksheets_to_init = [
+        (WS_INVENTORY, INVENTORY_HEADERS),
+        (WS_LEDGER, LEDGER_HEADERS),
+        (WS_REQUESTS, REQUESTS_HEADERS),
+        (WS_USERS, USERS_HEADERS),
+        (WS_VENDORS, VENDOR_HEADERS),
+        (WS_PO_TRACK, PO_HEADERS)
+    ]
+
+    for name, headers in worksheets_to_init:
+        _, created = _ensure_worksheet(sh, name, headers, existing_ws)
+        if created:
+            # Refresh cache if a new sheet was added to avoid staleness in next iteration
+            existing_ws = call_with_retry(sh.worksheets)
 
 
     return True, "Database ready."
