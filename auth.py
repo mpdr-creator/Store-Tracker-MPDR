@@ -144,7 +144,7 @@ def login_page():
 
             elif st.session_state.reg_state == "verify":
                 if "dev_otp_message" in st.session_state:
-                    st.warning(st.session_state.pop("dev_otp_message"))
+                    st.warning(st.session_state.get("dev_otp_message"))
                 st.info(f"An OTP has been sent to {st.session_state.reg_data['email']}")
                 otp_input = st.text_input("Enter 6-digit OTP", key="reg_otp_in")
                 if st.button("Verify & Register", use_container_width=True, key="reg_verify_btn"):
@@ -153,10 +153,14 @@ def login_page():
                         db.add_user(d["email"], hash_password(d["pass"]), d["role"], d["dept"])
                         st.success("✅ Registration successful! You can now login.")
                         st.session_state.reg_state = "input"
+                        if "dev_otp_message" in st.session_state:
+                            del st.session_state["dev_otp_message"]
                     else:
                         st.error("Invalid OTP.")
                 if st.button("Cancel", key="reg_cancel_btn"):
                     st.session_state.reg_state = "input"
+                    if "dev_otp_message" in st.session_state:
+                        del st.session_state["dev_otp_message"]
                     st.rerun()
 
         with tab_forgot:
@@ -180,7 +184,7 @@ def login_page():
                             
             elif st.session_state.forgot_state == "verify":
                 if "dev_otp_message" in st.session_state:
-                    st.warning(st.session_state.pop("dev_otp_message"))
+                    st.warning(st.session_state.get("dev_otp_message"))
                 st.info(f"OTP sent to {st.session_state.forgot_email}")
                 for_otp = st.text_input("Enter 6-digit OTP", key="for_otp_in")
                 new_pass = st.text_input("New Password", type="password", key="for_pass")
@@ -192,10 +196,14 @@ def login_page():
                             db.update_password(st.session_state.forgot_email, hash_password(new_pass))
                             st.success("✅ Password updated successfully! Switch to Login tab.")
                             st.session_state.forgot_state = "input"
+                            if "dev_otp_message" in st.session_state:
+                                del st.session_state["dev_otp_message"]
                     else:
                         st.error("Invalid OTP.")
                 if st.button("Cancel", key="for_cancel_btn"):
                     st.session_state.forgot_state = "input"
+                    if "dev_otp_message" in st.session_state:
+                        del st.session_state["dev_otp_message"]
                     st.rerun()
     return False
 
