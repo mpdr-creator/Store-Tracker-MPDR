@@ -1,47 +1,9 @@
 # ──────────────────────────────────────────────
 # Store Tracker — Authentication Module
 # ──────────────────────────────────────────────
-import os
-import random
-import smtplib
-from email.message import EmailMessage
-
 import streamlit as st
 import bcrypt
 import db
-
-
-def send_otp(to_email, otp_code):
-    sender = os.getenv("SMTP_EMAIL")
-    pwd = os.getenv("SMTP_PASSWORD")
-    try:
-        if not sender and "SMTP_EMAIL" in st.secrets:
-            sender = st.secrets["SMTP_EMAIL"]
-        if not pwd and "SMTP_PASSWORD" in st.secrets:
-            pwd = st.secrets["SMTP_PASSWORD"]
-    except Exception:
-        pass
-
-    if not sender or not pwd:
-        st.session_state["dev_otp_message"] = f"🔧 DEV MODE: SMTP not configured. Your OTP is: **{otp_code}**"
-        return True
-    
-    msg = EmailMessage()
-    msg.set_content(f"Your Store Tracker Verification Code is: {otp_code}\n\nPlease do not share this code with anyone.")
-    msg['Subject'] = 'Store Tracker - Verification Code'
-    msg['From'] = sender
-    msg['To'] = to_email
-
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender, pwd)
-        server.send_message(msg)
-        server.quit()
-        return True
-    except Exception as e:
-        st.error(f"Failed to send email. Check SMTP configuration. Exception: {e}")
-        return False
 
 
 def hash_password(password: str) -> str:
@@ -53,9 +15,6 @@ def check_password(stored_hash: str, password: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8"))
     except Exception:
         return False
-
-
-
 
 
 def login_page():
@@ -87,6 +46,7 @@ def login_page():
                 submitted = st.form_submit_button("Login", use_container_width=True)
 
             if submitted:
+                email = email.lower().strip()
                 if not email or not password:
                     st.error("Please enter both email and password.")
                     return False
@@ -105,106 +65,46 @@ def login_page():
         with tab_register:
             from config import ROLES, DEPARTMENTS
             
-            if "reg_state" not in st.session_state:
-                st.session_state.reg_state = "input"
+            reg_email = st.text_input("Choose Email *", placeholder="name@morepenpdr.com", key="reg_email_in")
+            reg_pass = st.text_input("Choose Password *", type="password", key="reg_pass_in")
+            reg_pass2 = st.text_input("Confirm Password *", type="password", key="reg_pass2_in")
+            reg_role = st.selectbox("Select Role *", ROLES, key="reg_role_in")
+            
+            reg_dept = ""
+            if reg_role == "Scientist":
+                reg_dept = st.selectbox("Select Department *", [""] + DEPARTMENTS, key="reg_dept_in")
                 
-            if st.session_state.reg_state == "input":
-                reg_email = st.text_input("Choose Email *", placeholder="name@morepenpdr.com", key="reg_email_in")
-                reg_pass = st.text_input("Choose Password *", type="password", key="reg_pass_in")
-                reg_pass2 = st.text_input("Confirm Password *", type="password", key="reg_pass2_in")
-                reg_role = st.selectbox("Select Role *", ROLES, key="reg_role_in")
-                
-                reg_dept = ""
-                if reg_role == "Scientist":
-                    reg_dept = st.selectbox("Select Department *", [""] + DEPARTMENTS, key="reg_dept_in")
-                    
-                if st.button("Send Verification OTP", use_container_width=True, key="reg_btn"):
-                    if not reg_email or not reg_pass:
-                        st.error("Email and password are required.")
-                    elif not reg_email.endswith("@morepenpdr.com"):
-                        st.error("Only @morepenpdr.com emails are allowed for registration.")
-                    elif reg_pass != reg_pass2:
-                        st.error("Passwords do not match.")
-                    elif reg_role in ["Admin", "Management"] and reg_email.lower() != "admin@morepenpdr.com":
-                        st.error("Only the designated email (admin@morepenpdr.com) can hold Admin privileges.")
-                    elif reg_role == "Scientist" and not reg_dept:
-                        st.error("Scientists must select a department.")
-                    elif db.get_user(reg_email) is not None:
-                        st.error(f"Email '{reg_email}' is already registered.")
-                    else:
-                        otp = str(random.randint(100000, 999999))
-                        if send_otp(reg_email, otp):
-                            st.session_state.reg_otp = otp
-                            st.session_state.reg_data = {
-                                "email": reg_email, "pass": reg_pass, 
-                                "role": reg_role, "dept": reg_dept
-                            }
-                            st.session_state.reg_state = "verify"
-                            st.rerun()
-
-            elif st.session_state.reg_state == "verify":
-                if "dev_otp_message" in st.session_state:
-                    st.warning(st.session_state.get("dev_otp_message"))
-                st.info(f"An OTP has been sent to {st.session_state.reg_data['email']}")
-                otp_input = st.text_input("Enter 6-digit OTP", key="reg_otp_in")
-                if st.button("Verify & Register", use_container_width=True, key="reg_verify_btn"):
-                    if otp_input.strip() == st.session_state.reg_otp:
-                        d = st.session_state.reg_data
-                        db.add_user(d["email"], hash_password(d["pass"]), d["role"], d["dept"])
+            if st.button("Complete Registration", use_container_width=True, key="reg_btn"):
+                reg_email = reg_email.lower().strip()
+                if not reg_email or not reg_pass:
+                    st.error("Email and password are required.")
+                elif not reg_email.endswith("@morepenpdr.com"):
+                    st.error("Only @morepenpdr.com emails are allowed for registration.")
+                elif reg_pass != reg_pass2:
+                    st.error("Passwords do not match.")
+                elif reg_role in ["Admin", "Management"] and reg_email.lower() != "admin@morepenpdr.com":
+                    st.error("Only the designated email (admin@morepenpdr.com) can hold Admin privileges.")
+                elif reg_role == "Scientist" and not reg_dept:
+                    st.error("Scientists must select a department.")
+                elif db.get_user(reg_email) is not None:
+                    st.error(f"Email '{reg_email}' is already registered.")
+                else:
+                    # Direct registration without OTP
+                    ok, res = db.add_user(reg_email, hash_password(reg_pass), reg_role, reg_dept)
+                    if ok:
                         st.success("✅ Registration successful! You can now login.")
-                        st.session_state.reg_state = "input"
-                        if "dev_otp_message" in st.session_state:
-                            del st.session_state["dev_otp_message"]
                     else:
-                        st.error("Invalid OTP.")
-                if st.button("Cancel", key="reg_cancel_btn"):
-                    st.session_state.reg_state = "input"
-                    if "dev_otp_message" in st.session_state:
-                        del st.session_state["dev_otp_message"]
-                    st.rerun()
+                        st.error(f"Registration failed: {res}")
 
         with tab_forgot:
-            if "forgot_state" not in st.session_state:
-                st.session_state.forgot_state = "input"
-                
-            if st.session_state.forgot_state == "input":
-                for_email = st.text_input("Registered Email", placeholder="name@morepenpdr.com", key="for_email")
-                if st.button("Send Reset OTP", use_container_width=True, key="for_btn"):
-                    if not for_email:
-                        st.error("Please enter your email.")
-                    elif db.get_user(for_email) is None:
-                        st.error("Account not found in the system.")
-                    else:
-                        otp = str(random.randint(100000, 999999))
-                        if send_otp(for_email, otp):
-                            st.session_state.forgot_otp = otp
-                            st.session_state.forgot_email = for_email
-                            st.session_state.forgot_state = "verify"
-                            st.rerun()
-                            
-            elif st.session_state.forgot_state == "verify":
-                if "dev_otp_message" in st.session_state:
-                    st.warning(st.session_state.get("dev_otp_message"))
-                st.info(f"OTP sent to {st.session_state.forgot_email}")
-                for_otp = st.text_input("Enter 6-digit OTP", key="for_otp_in")
-                new_pass = st.text_input("New Password", type="password", key="for_pass")
-                if st.button("Reset Password", use_container_width=True, key="for_verify_btn"):
-                    if for_otp.strip() == st.session_state.forgot_otp:
-                        if not new_pass:
-                            st.error("New password required.")
-                        else:
-                            db.update_password(st.session_state.forgot_email, hash_password(new_pass))
-                            st.success("✅ Password updated successfully! Switch to Login tab.")
-                            st.session_state.forgot_state = "input"
-                            if "dev_otp_message" in st.session_state:
-                                del st.session_state["dev_otp_message"]
-                    else:
-                        st.error("Invalid OTP.")
-                if st.button("Cancel", key="for_cancel_btn"):
-                    st.session_state.forgot_state = "input"
-                    if "dev_otp_message" in st.session_state:
-                        del st.session_state["dev_otp_message"]
-                    st.rerun()
+            st.info("### 🔑 Password Reset")
+            st.write(
+                "For security reasons, automated password resets are disabled. "
+                "Please contact your **System Administrator** or the IT department "
+                "to reset your credentials."
+            )
+            st.markdown("---")
+            st.markdown("**Admin Contact:** admin@morepenpdr.com")
     return False
 
 
