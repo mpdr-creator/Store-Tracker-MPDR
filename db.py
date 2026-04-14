@@ -269,6 +269,7 @@ def delete_vendor(vendor_id):
 
 
 # ── Inventory Master ───────────────────────────
+def get_all_items():
     df = _all_records(WS_INVENTORY)
     if not df.empty:
         # Filter to only active headers to hide removed columns like Pack_Size
