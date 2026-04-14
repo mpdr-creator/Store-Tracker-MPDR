@@ -393,7 +393,7 @@ def admin_dashboard():
         st.subheader("📋 Full Inventory")
         if not inv.empty:
             display_cols = ["Item_ID", "Unique_Name", "Material_Name", "CAS_No",
-                            "Grade_Purity", "Manufacturer", "Units", "Min_Stock", "Available_Stock"]
+                            "Grade_Purity", "Manufacturer", "Units", "Min_Stock", "Status", "Available_Stock"]
             display_df = inv[[c for c in display_cols if c in inv.columns]].copy()
             display_df.insert(0, "S.No", range(1, len(display_df) + 1))
 
@@ -635,12 +635,36 @@ def admin_inventory():
                             "Manufacturer": new_mfr,
                             "Units": new_units,
                             "Material_Type": new_type,
+                            "Manufacturer": new_mfr,
+                            "Units": new_units,
+                            "Material_Type": new_type,
                             "Min_Stock": new_min,
                         })
-                        st.success("Item updated!")
+                        st.success("Item details updated!")
                         _load_inventory_with_stock.clear()
 
-                # --- NEW: Quick Stock Adjustment Section ---
+                # --- NEW: Deactivation / Activation ---
+                st.markdown("---")
+                st.subheader("⚙️ Item Management")
+                current_status = str(item_row.get("Status", "Active"))
+                
+                c_status1, c_status2 = st.columns([2, 1])
+                c_status1.write(f"Current Status: **{current_status}**")
+                
+                if current_status == "Active":
+                    if c_status2.button("🚫 Deactivate Item", use_container_width=True):
+                        db.update_item(sel_id, {"Status": "Inactive"})
+                        st.warning(f"{item_row['Unique_Name']} has been deactivated.")
+                        _load_inventory_with_stock.clear()
+                        st.rerun()
+                else:
+                    if c_status2.button("✅ Reactivate Item", use_container_width=True):
+                        db.update_item(sel_id, {"Status": "Active"})
+                        st.success(f"{item_row['Unique_Name']} is now active!")
+                        _load_inventory_with_stock.clear()
+                        st.rerun()
+
+                # --- NEW: Quick Stock Adjustment Section (shifted) ---
                 st.markdown("---")
                 st.subheader("⚖️ Quick Stock Adjustment")
                 
@@ -665,6 +689,20 @@ def admin_inventory():
                                 st.success(f"Successfully adjusted stock by {adj_val}!")
                                 _load_inventory_with_stock.clear()
                                 st.rerun()
+
+                # --- NEW: Danger Zone (Hard Deletion) ---
+                st.markdown("---")
+                with st.expander("⚠️ DANGER ZONE - Permanent Actions"):
+                    st.error("Hard deletion is irreversible and will remove the item completely from the database.")
+                    confirm = st.checkbox(f"I confirm that I want to PERMANENTLY delete **{item_row['Unique_Name']}**", key=f"del_conf_{sel_id}")
+                    if st.button("🗑️ Permanently Delete Item", type="primary", use_container_width=True, disabled=not confirm):
+                        ok, msg = db.delete_item(sel_id)
+                        if ok:
+                            st.success(msg)
+                            _load_inventory_with_stock.clear()
+                            st.rerun()
+                        else:
+                            st.error(msg)
 
 
 def admin_add_stock():
@@ -1119,14 +1157,14 @@ def scientist_stock_viewer():
 
     # Search
     search = st.text_input("🔍 Search chemicals by name, CAS, or manufacturer")
-    display = inv.copy()
+    display = inv[inv["Status"] == "Active"].copy()
     if search:
         mask = display.apply(lambda r: search.lower() in str(r).lower(), axis=1)
         display = display[mask]
 
     # Show table
     cols_to_show = ["Item_ID", "Unique_Name", "Material_Name", "CAS_No", "Grade_Purity",
-                    "Manufacturer", "Units", "Min_Stock", "Available_Stock"]
+                    "Manufacturer", "Units", "Min_Stock", "Status", "Available_Stock"]
     show_df = display[[c for c in cols_to_show if c in display.columns]].copy()
     show_df.insert(0, "S.No", range(1, len(show_df) + 1))
 
@@ -1177,7 +1215,7 @@ def scientist_submit_request():
     with c1:
         st.subheader("1. Select Chemical & Quantity")
         search_req = st.text_input("🔍 Search chemical by Name, ID, or CAS", key="req_search")
-        display_inv = inv.copy()
+        display_inv = inv[inv["Status"] == "Active"].copy()
         if search_req:
             mask = display_inv.apply(lambda r: search_req.lower() in str(r).lower(), axis=1)
             display_inv = display_inv[mask]
