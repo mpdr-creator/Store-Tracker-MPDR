@@ -7,6 +7,6 @@ env/
 venv/
 ENV/
 *.xlsx
-credentials.json
+# credentials.json (Allowed for fix)
 .DS_Store
 .streamlit/secrets.toml
