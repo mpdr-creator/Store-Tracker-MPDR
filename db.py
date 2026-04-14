@@ -274,13 +274,15 @@ def get_all_items():
     if not df.empty:
         # Filter to only active headers to hide removed columns like Pack_Size
         df = df[[c for c in INVENTORY_HEADERS if c in df.columns]]
+        if "Status" in df.columns:
+            df["Status"] = df["Status"].replace("", "Active").fillna("Active")
         if "Unique_Name" in df.columns:
             df = df.sort_values(by="Unique_Name", key=lambda col: col.astype(str).str.lower()).reset_index(drop=True)
     return df
 
 
 def add_item(unique_name, material_name, cas_no, grade, manufacturer, units,
-             opening_stock=0.0, min_stock=5.0, material_type="", updated_by="system"):
+             opening_stock=0.0, min_stock=5.0, material_type="", pack_size="", updated_by="system"):
     """Add item to Inventory_Master and create an OPENING ledger entry."""
     item_id = generate_id(6)
     _append(WS_INVENTORY, {
@@ -293,6 +295,7 @@ def add_item(unique_name, material_name, cas_no, grade, manufacturer, units,
         "Units": units,
         "Min_Stock": min_stock,
         "Material_Type": material_type,
+        "Pack_Size": pack_size,
         "Status": "Active",
     })
     if opening_stock > 0:
