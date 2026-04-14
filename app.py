@@ -640,6 +640,32 @@ def admin_inventory():
                         st.success("Item updated!")
                         _load_inventory_with_stock.clear()
 
+                # --- NEW: Quick Stock Adjustment Section ---
+                st.markdown("---")
+                st.subheader("⚖️ Quick Stock Adjustment")
+                
+                # Fetch fresh stock value
+                current_stock = db.compute_stock(sel_id)
+                st.metric("Current Available Stock", f"{current_stock} {item_row.get('Units', '')}")
+
+                with st.expander("Update Quantity", expanded=False):
+                    with st.form(f"quick_adj_{sel_id}", clear_on_submit=True):
+                        st.caption("Enter a positive value to add, or a negative value to deduct.")
+                        adj_val = st.number_input("Adjustment Quantity", step=0.1, key=f"quick_qty_{sel_id}")
+                        adj_reason = st.text_input("Reason / Remark", placeholder="e.g. Physical count correction", key=f"quick_rem_{sel_id}")
+                        
+                        if st.form_submit_button("⚡ Apply Adjustment", use_container_width=True):
+                            if current_stock + adj_val < 0:
+                                st.error(f"Cannot adjust. Resulting stock would be negative ({current_stock + adj_val}).")
+                            elif adj_val == 0:
+                                st.warning("Please enter a non-zero value.")
+                            else:
+                                db.add_ledger_entry(sel_id, "ADJUSTMENT", adj_val, 
+                                                    reference_id=adj_reason, updated_by=email)
+                                st.success(f"Successfully adjusted stock by {adj_val}!")
+                                _load_inventory_with_stock.clear()
+                                st.rerun()
+
 
 def admin_add_stock():
     st.title("📥 Add / Adjust Stock")
