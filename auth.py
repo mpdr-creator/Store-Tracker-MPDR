@@ -87,7 +87,6 @@ def login_page():
                 submitted = st.form_submit_button("Login", use_container_width=True)
 
             if submitted:
-                email = email.lower().strip()
                 if not email or not password:
                     st.error("Please enter both email and password.")
                     return False
@@ -120,7 +119,6 @@ def login_page():
                     reg_dept = st.selectbox("Select Department *", [""] + DEPARTMENTS, key="reg_dept_in")
                     
                 if st.button("Send Verification OTP", use_container_width=True, key="reg_btn"):
-                    reg_email = reg_email.lower().strip()
                     if not reg_email or not reg_pass:
                         st.error("Email and password are required.")
                     elif not reg_email.endswith("@morepenpdr.com"):
@@ -152,14 +150,11 @@ def login_page():
                 if st.button("Verify & Register", use_container_width=True, key="reg_verify_btn"):
                     if otp_input.strip() == st.session_state.reg_otp:
                         d = st.session_state.reg_data
-                        ok, msg = db.add_user(d["email"].lower().strip(), hash_password(d["pass"]), d["role"], d["dept"])
-                        if ok:
-                            st.success("✅ Registration successful! You can now login.")
-                            st.session_state.reg_state = "input"
-                            if "dev_otp_message" in st.session_state:
-                                del st.session_state["dev_otp_message"]
-                        else:
-                            st.error(f"Registration failed: {msg}")
+                        db.add_user(d["email"], hash_password(d["pass"]), d["role"], d["dept"])
+                        st.success("✅ Registration successful! You can now login.")
+                        st.session_state.reg_state = "input"
+                        if "dev_otp_message" in st.session_state:
+                            del st.session_state["dev_otp_message"]
                     else:
                         st.error("Invalid OTP.")
                 if st.button("Cancel", key="reg_cancel_btn"):
@@ -175,7 +170,6 @@ def login_page():
             if st.session_state.forgot_state == "input":
                 for_email = st.text_input("Registered Email", placeholder="name@morepenpdr.com", key="for_email")
                 if st.button("Send Reset OTP", use_container_width=True, key="for_btn"):
-                    for_email = for_email.lower().strip()
                     if not for_email:
                         st.error("Please enter your email.")
                     elif db.get_user(for_email) is None:
@@ -199,14 +193,11 @@ def login_page():
                         if not new_pass:
                             st.error("New password required.")
                         else:
-                            ok = db.update_password(st.session_state.forgot_email.lower().strip(), hash_password(new_pass))
-                            if ok:
-                                st.success("✅ Password updated successfully! Switch to Login tab.")
-                                st.session_state.forgot_state = "input"
-                                if "dev_otp_message" in st.session_state:
-                                    del st.session_state["dev_otp_message"]
-                            else:
-                                st.error("Failed to update password. User might have been deleted.")
+                            db.update_password(st.session_state.forgot_email, hash_password(new_pass))
+                            st.success("✅ Password updated successfully! Switch to Login tab.")
+                            st.session_state.forgot_state = "input"
+                            if "dev_otp_message" in st.session_state:
+                                del st.session_state["dev_otp_message"]
                     else:
                         st.error("Invalid OTP.")
                 if st.button("Cancel", key="for_cancel_btn"):
