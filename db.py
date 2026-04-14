@@ -293,6 +293,7 @@ def add_item(unique_name, material_name, cas_no, grade, manufacturer, units,
         "Units": units,
         "Min_Stock": min_stock,
         "Material_Type": material_type,
+        "Status": "Active",
     })
     if opening_stock > 0:
         add_ledger_entry(item_id, "OPENING", opening_stock, updated_by=updated_by)
@@ -302,6 +303,21 @@ def add_item(unique_name, material_name, cas_no, grade, manufacturer, units,
 def update_item(item_id, updates: dict):
     """Update fields on an existing inventory item."""
     return _update_cell_by_id(WS_INVENTORY, "Item_ID", item_id, updates)
+
+
+def delete_item(item_id):
+    """Hard delete an item from the inventory master."""
+    ws = _ws(WS_INVENTORY)
+    try:
+        records = call_with_retry(ws.get_all_records)
+        for idx, row in enumerate(records):
+            if str(row.get("Item_ID")) == str(item_id):
+                # Row index is idx + 2 (+1 header, +1 zero-indexed)
+                call_with_retry(ws.delete_rows, idx + 2)
+                return True, "Item deleted permanently."
+    except Exception as e:
+         return False, f"Error deleting item: {e}"
+    return False, "Item not found."
 
 
 # ── Stock Ledger ───────────────────────────────
