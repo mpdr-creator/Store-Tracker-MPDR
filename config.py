@@ -21,7 +21,7 @@ WS_VENDORS = "Suppliers"
 # Inventory_Master headers
 INVENTORY_HEADERS = [
     "Item_ID", "Unique_Name", "Material_Name",
-    "CAS_No", "Grade_Purity", "Manufacturer", "Units", "Min_Stock", "Material_Type", "Pack_Size",
+    "CAS_No", "Grade_Purity", "Manufacturer", "Units", "Min_Stock", "Material_Type",
 ]
 
 # Suppliers headers
