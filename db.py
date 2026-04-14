@@ -54,15 +54,30 @@ def _get_client():
             _client = gspread.authorize(creds)
             return _client
         except Exception as e:
-            print(f"[db] Error loading secrets: {e}")
+            st.error(f"❌ **Secrets Error:** {e}")
 
     # 2. Try Local File (for Local Development)
-    creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "credentials.json")
-    if os.path.exists(creds_path):
-        creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
-        _client = gspread.authorize(creds)
-        return _client
-        
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    potential_paths = [
+        os.path.join(base_dir, "credentials.json"),
+        os.path.abspath("credentials.json"),
+        os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+    ]
+    
+    tried = []
+    for path in potential_paths:
+        if not path: continue
+        tried.append(path)
+        if os.path.exists(path):
+            try:
+                creds = Credentials.from_service_account_file(path, scopes=SCOPES)
+                _client = gspread.authorize(creds)
+                return _client
+            except Exception as e:
+                st.error(f"❌ **Credential Error** at `{path}`: {e}")
+                st.stop()
+    
+    st.session_state["db_tried_paths"] = tried
     return None
 
 
@@ -125,7 +140,15 @@ def initialize_database():
     """Ensure spreadsheet + all 4 worksheets exist with correct headers."""
     client = _get_client()
     if not client:
-        return False, "Could not initialise Google Sheets client. Check credentials.json."
+        cwd = os.getcwd()
+        tried = st.session_state.get("db_debug_paths", [])
+        paths_str = "\n".join([f"- `{p}`" for p in tried])
+        return False, (
+            f"Could not initialise Google Sheets client.\n\n"
+            f"**Current Working Directory:** `{cwd}`\n\n"
+            f"**Searched Paths:**\n{paths_str}\n\n"
+            f"Please ensure **credentials.json** is in one of these locations."
+        )
 
     try:
         sh = call_with_retry(client.open, SPREADSHEET_NAME)
@@ -228,7 +251,9 @@ def _update_cell_by_id(name, id_col, id_val, updates: dict):
     headers = call_with_retry(ws.row_values, 1)
 
     for i, rec in enumerate(records):
-        if str(rec.get(id_col)) == str(id_val):
+        val_in_sheet = str(rec.get(id_col)).strip().lower()
+        target_val = str(id_val).strip().lower()
+        if val_in_sheet == target_val:
             row_idx = i + 2  # +1 header, +1 zero-index
             for col_name, new_val in updates.items():
                 if col_name in headers:
@@ -465,17 +490,19 @@ def get_users():
 
 
 def get_user(email):
+    email = str(email).lower().strip()
     df = get_users()
     if df.empty:
         return None
-    match = df[df["Email"] == email]
+    df["Email_Lower"] = df["Email"].str.lower().str.strip()
+    match = df[df["Email_Lower"] == email]
     return match.iloc[0] if not match.empty else None
 
 
 def add_user(email, password_hash, role, department=""):
     _append(WS_USERS, {
         "UserID": generate_id(6),
-        "Email": email,
+        "Email": str(email).lower().strip(),
         "Password_Hash": password_hash,
         "Role": role,
         "Department": department,
@@ -484,6 +511,7 @@ def add_user(email, password_hash, role, department=""):
 
 def update_password(email, new_hash):
     """Update password hash for existing user."""
+    email = str(email).lower().strip()
     return _update_cell_by_id(WS_USERS, "Email", email, {"Password_Hash": new_hash})
 
 
