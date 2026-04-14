@@ -264,17 +264,22 @@ from config import DEPARTMENTS, ROLES, TRANSACTION_TYPES, PO_HEADERS, PO_UNITS
 
 # ── Database init ───────────────────────────────
 if "db_ready" not in st.session_state:
-    # Check if either local file exists OR secrets are configured
-    creds_exist = os.path.exists("credentials.json")
+    # Check absolute location for credentials.json
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    creds_path = os.path.join(base_dir, "credentials.json")
+    
+    creds_exist = os.path.exists(creds_path)
     secrets_exist = "gcp_service_account" in st.secrets
     
     if not creds_exist and not secrets_exist:
-        st.error("❌ **Credentials missing.** Please configure Streamlit Secrets or provide `credentials.json`.")
+        st.error("❌ **Credentials missing.** Please provide `credentials.json` in the app folder.")
+        st.info(f"Searched at: `{creds_path}`")
         st.stop()
         
     ok, msg = db.initialize_database()
     if not ok:
-        st.error(msg)
+        st.error("⚠️ **Database Initialization Failed**")
+        st.markdown(msg)
         st.stop()
     st.session_state["db_ready"] = True
 
@@ -295,6 +300,9 @@ st.sidebar.markdown(f"""
         <span style="background: #10b981; color: white; padding: 2px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Montserrat', sans-serif;">
             {role}
         </span>
+    </div>
+    <div style="margin-top: 10px; font-size: 0.65rem; color: #94a3b8; font-family: 'Inter', sans-serif; text-align: right; opacity: 0.6;">
+        Version: v1.0.1 - Emerald Fix
     </div>
 </div>
 """, unsafe_allow_html=True)
