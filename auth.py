@@ -23,7 +23,9 @@ def send_otp(to_email, otp_code):
         pass
 
     if not sender or not pwd:
-        st.session_state["dev_otp_message"] = f"🔧 DEV MODE: SMTP not configured. Your OTP is: **{otp_code}**"
+        # Use specific keys to prevent bleeding across tabs
+        key = "reg_dev_otp" if "reg_state" in st.session_state and st.session_state.reg_state == "verify" else "forgot_dev_otp"
+        st.session_state[key] = f"🔧 DEV MODE: SMTP not configured. Your OTP is: **{otp_code}**"
         return True
     
     msg = EmailMessage()
@@ -131,8 +133,8 @@ def login_page():
                         st.error("Only the designated email (admin@morepenpdr.com) can hold Admin privileges.")
                     elif reg_role == "Scientist" and not reg_dept:
                         st.error("Scientists must select a department.")
-                    elif db.get_user(reg_email) is not None:
-                        st.error(f"Email '{reg_email}' is already registered.")
+                    elif db.get_user(reg_email_clean) is not None:
+                        st.error(f"Email '{reg_email_clean}' is already registered.")
                     else:
                         otp = str(random.randint(100000, 999999))
                         if send_otp(reg_email, otp):
@@ -145,35 +147,40 @@ def login_page():
                             st.rerun()
 
             elif st.session_state.reg_state == "verify":
-                if "dev_otp_message" in st.session_state:
-                    st.warning(st.session_state.get("dev_otp_message"))
-                st.info(f"An OTP has been sent to {st.session_state.reg_data['email']}")
-                otp_input = st.text_input("Enter 6-digit OTP", key="reg_otp_in")
-                if st.button("Verify & Register", use_container_width=True, key="reg_verify_btn") or st.session_state.get("reg_success"):
-                    if st.session_state.get("reg_success") or otp_input.strip() == st.session_state.reg_otp:
-                        d = st.session_state.reg_data
-                        try:
-                            if not st.session_state.get("reg_success"):
-                                db.add_user(d["email"], hash_password(d["pass"]), d["role"], d["dept"])
-                                st.session_state.reg_success = True
-                            
-                            st.success("✅ Registration successful!")
-                            st.info("You can now switch to the **Login** tab.")
-                            if st.button("OK, Go to Login"):
-                                st.session_state.reg_state = "input"
-                                st.session_state.reg_success = False
-                                if "dev_otp_message" in st.session_state:
-                                    del st.session_state["dev_otp_message"]
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"Failed to register: {e}")
-                    else:
-                        st.error("Invalid OTP.")
-                if st.button("Cancel", key="reg_cancel_btn"):
-                    st.session_state.reg_state = "input"
-                    if "dev_otp_message" in st.session_state:
-                        del st.session_state["dev_otp_message"]
-                    st.rerun()
+                if st.session_state.get("reg_success"):
+                    st.success("✅ Registration successful!")
+                    st.info("You can now switch to the **Login** tab.")
+                    if st.button("OK, Go to Login"):
+                        st.session_state.reg_state = "input"
+                        st.session_state.reg_success = False
+                        st.rerun()
+                else:
+                    if "reg_dev_otp" in st.session_state:
+                        st.warning(st.session_state.get("reg_dev_otp"))
+                    st.info(f"An OTP has been sent to {st.session_state.reg_data['email']}")
+                    otp_input = st.text_input("Enter 6-digit OTP", key="reg_otp_in")
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        if st.button("Verify & Register", use_container_width=True, key="reg_verify_btn"):
+                            if otp_input.strip() == st.session_state.reg_otp:
+                                d = st.session_state.reg_data
+                                try:
+                                    db.add_user(d["email"], hash_password(d["pass"]), d["role"], d["dept"])
+                                    st.session_state.reg_success = True
+                                    if "reg_dev_otp" in st.session_state:
+                                        del st.session_state["reg_dev_otp"]
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Failed to register: {e}")
+                            else:
+                                st.error("Invalid OTP.")
+                    with c2:
+                        if st.button("Cancel", use_container_width=True, key="reg_cancel_btn"):
+                            st.session_state.reg_state = "input"
+                            if "reg_dev_otp" in st.session_state:
+                                del st.session_state["reg_dev_otp"]
+                            st.rerun()
 
         with tab_forgot:
             if "forgot_state" not in st.session_state:
@@ -196,38 +203,43 @@ def login_page():
                             st.rerun()
                             
             elif st.session_state.forgot_state == "verify":
-                if "dev_otp_message" in st.session_state:
-                    st.warning(st.session_state.get("dev_otp_message"))
-                st.info(f"OTP sent to {st.session_state.forgot_email}")
-                for_otp = st.text_input("Enter 6-digit OTP", key="for_otp_in")
-                new_pass = st.text_input("New Password", type="password", key="for_pass")
-                if st.button("Reset Password", use_container_width=True, key="for_verify_btn") or st.session_state.get("forgot_success"):
-                    if st.session_state.get("forgot_success") or for_otp.strip() == st.session_state.forgot_otp:
-                        if not new_pass and not st.session_state.get("forgot_success"):
-                            st.error("New password required.")
-                        else:
-                            if not st.session_state.get("forgot_success"):
-                                ok = db.update_password(st.session_state.forgot_email, hash_password(new_pass))
-                                st.session_state.forgot_success = ok
-                            
-                            if st.session_state.get("forgot_success"):
-                                st.success("✅ Password updated successfully!")
-                                st.info("You can now switch to the **Login** tab.")
-                                if st.button("OK, Back to Login"):
-                                    st.session_state.forgot_state = "input"
-                                    st.session_state.forgot_success = False
-                                    if "dev_otp_message" in st.session_state:
-                                        del st.session_state["dev_otp_message"]
-                                    st.rerun()
+                if st.session_state.get("forgot_success"):
+                    st.success("✅ Password updated successfully!")
+                    st.info("You can now switch to the **Login** tab.")
+                    if st.button("OK, Back to Login"):
+                        st.session_state.forgot_state = "input"
+                        st.session_state.forgot_success = False
+                        st.rerun()
+                else:
+                    if "forgot_dev_otp" in st.session_state:
+                        st.warning(st.session_state.get("forgot_dev_otp"))
+                    st.info(f"OTP sent to {st.session_state.forgot_email}")
+                    for_otp = st.text_input("Enter 6-digit OTP", key="for_otp_in")
+                    new_pass = st.text_input("New Password", type="password", key="for_pass")
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        if st.button("Reset Password", use_container_width=True, key="for_verify_btn"):
+                            if for_otp.strip() == st.session_state.forgot_otp:
+                                if not new_pass:
+                                    st.error("New password required.")
+                                else:
+                                    ok = db.update_password(st.session_state.forgot_email, hash_password(new_pass))
+                                    if ok:
+                                        st.session_state.forgot_success = True
+                                        if "forgot_dev_otp" in st.session_state:
+                                            del st.session_state["forgot_dev_otp"]
+                                        st.rerun()
+                                    else:
+                                        st.error("Failed to update password. User record might be missing.")
                             else:
-                                st.error("Failed to update password. User record might be missing.")
-                    else:
-                        st.error("Invalid OTP.")
-                if st.button("Cancel", key="for_cancel_btn"):
-                    st.session_state.forgot_state = "input"
-                    if "dev_otp_message" in st.session_state:
-                        del st.session_state["dev_otp_message"]
-                    st.rerun()
+                                st.error("Invalid OTP.")
+                    with c2:
+                        if st.button("Cancel", use_container_width=True, key="for_cancel_btn"):
+                            st.session_state.forgot_state = "input"
+                            if "forgot_dev_otp" in st.session_state:
+                                del st.session_state["forgot_dev_otp"]
+                            st.rerun()
     return False
 
 
