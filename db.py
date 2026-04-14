@@ -291,10 +291,16 @@ def get_all_items():
     return df
 
 
-def add_item(unique_name, material_name, cas_no, grade, manufacturer, units,
-             opening_stock=0.0, min_stock=5.0, material_type="", pack_size="", updated_by="system"):
-    """Add item to Inventory_Master and create an OPENING ledger entry."""
-    item_id = generate_id(6)
+def add_item(unique_name, material_name, cas_no, grade, manufacturer, units, pack_size, material_type, opening_stock=0.0, min_stock=5.0, updated_by="admin"):
+    """Create a new item in Inventory Master and optional opening entry in Ledger."""
+    
+    # Type Safety: Ensure numeric inputs are correct types
+    try:
+        opening_stock = float(opening_stock)
+    except (ValueError, TypeError):
+        opening_stock = 0.0
+        
+    item_id = generate_id(10)
     _append(WS_INVENTORY, {
         "Item_ID": item_id,
         "Unique_Name": unique_name,
@@ -369,6 +375,10 @@ def compute_stock(item_id=None):
         return pd.DataFrame(columns=["Item_ID", "Available_Stock"])
 
     df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0)
+    
+    # Robustness: Filter out any rows that don't have a valid Item_ID (like blank rows in Sheet)
+    df = df[df["Item_ID"].astype(str).str.strip() != ""]
+    
     stock = df.groupby("Item_ID")["Quantity"].sum().reset_index()
     stock["Quantity"] = stock["Quantity"].round(2)
     stock.columns = ["Item_ID", "Available_Stock"]

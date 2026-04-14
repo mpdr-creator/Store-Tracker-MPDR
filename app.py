@@ -566,7 +566,13 @@ def admin_inventory():
         if not inv.empty:
             search = st.text_input("🔍 Search by name, CAS, or manufacturer", key="inv_search")
             if search:
-                mask = inv.apply(lambda r: search.lower() in str(r).lower(), axis=1)
+                search = search.lower().strip()
+                mask = (
+                    inv["Unique_Name"].str.contains(search, case=False, na=False) |
+                    inv["Material_Name"].str.contains(search, case=False, na=False) |
+                    inv["CAS_No"].str.contains(search, case=False, na=False) |
+                    inv["Manufacturer"].str.contains(search, case=False, na=False)
+                )
                 inv = inv[mask]
             
             display_inv = inv.copy()
@@ -711,7 +717,7 @@ def admin_inventory():
                                 st.warning("Please enter a non-zero value.")
                             else:
                                 db.add_ledger_entry(sel_id, "ADJUSTMENT", adj_val, 
-                                                    reference_id=adj_reason, updated_by=email)
+                                                    reference_id=adj_reason, updated_by=email.lower().strip())
                                 st.success(f"Successfully adjusted stock by {adj_val}!")
                                 _load_inventory_with_stock.clear()
                                 st.rerun()
@@ -889,11 +895,16 @@ def admin_ledger():
 
     filtered = ledger[ledger["Transaction_Type"].isin(txn_filter)]
 
-    if item_search:
         if not inv.empty:
-            matching_ids = inv[inv.apply(lambda r: item_search.lower() in str(r).lower(), axis=1)]["Item_ID"].tolist()
+            item_search = item_search.lower().strip()
+            mask_items = (
+                inv["Unique_Name"].str.contains(item_search, case=False, na=False) |
+                inv["Material_Name"].str.contains(item_search, case=False, na=False) |
+                inv["Item_ID"].astype(str).str.contains(item_search, case=False, na=False)
+            )
+            matching_ids = inv[mask_items]["Item_ID"].tolist()
             filtered = filtered[filtered["Item_ID"].isin(matching_ids) |
-                                filtered["Item_ID"].str.contains(item_search, case=False, na=False)]
+                                filtered["Item_ID"].astype(str).str.contains(item_search, case=False, na=False)]
         else:
             filtered = filtered[filtered["Item_ID"].str.contains(item_search, case=False, na=False)]
 
@@ -1187,7 +1198,13 @@ def scientist_stock_viewer():
     search = st.text_input("🔍 Search chemicals by name, CAS, or manufacturer")
     display = inv[inv["Status"] == "Active"].copy()
     if search:
-        mask = display.apply(lambda r: search.lower() in str(r).lower(), axis=1)
+        search = search.lower().strip()
+        mask = (
+            display["Unique_Name"].str.contains(search, case=False, na=False) |
+            display["Material_Name"].str.contains(search, case=False, na=False) |
+            display["CAS_No"].str.contains(search, case=False, na=False) |
+            display["Manufacturer"].str.contains(search, case=False, na=False)
+        )
         display = display[mask]
 
     # Show table
@@ -1249,7 +1266,13 @@ def scientist_submit_request():
         search_req = st.text_input("🔍 Search chemical by Name, ID, or CAS", key="req_search")
         display_inv = inv[inv["Status"] == "Active"].copy()
         if search_req:
-            mask = display_inv.apply(lambda r: search_req.lower() in str(r).lower(), axis=1)
+            search_req = search_req.lower().strip()
+            mask = (
+                display_inv["Unique_Name"].str.contains(search_req, case=False, na=False) |
+                display_inv["Material_Name"].str.contains(search_req, case=False, na=False) |
+                display_inv["CAS_No"].str.contains(search_req, case=False, na=False) |
+                display_inv["Item_ID"].astype(str).str.contains(search_req, case=False, na=False)
+            )
             display_inv = display_inv[mask]
 
         if not display_inv.empty:
