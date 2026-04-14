@@ -49,7 +49,11 @@ def _get_client():
     # 1. Try Streamlit Secrets (for Cloud Deployment)
     if "gcp_service_account" in st.secrets:
         try:
-            creds_info = st.secrets["gcp_service_account"]
+            # Fix: Handle newline characters that often break when copy-pasting to Streamlit Secrets
+            creds_info = dict(st.secrets["gcp_service_account"])
+            if "private_key" in creds_info:
+                creds_info["private_key"] = creds_info["private_key"].replace("\\n", "\n")
+            
             creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
             _client = gspread.authorize(creds)
             return _client
