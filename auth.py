@@ -14,8 +14,16 @@ import db
 def send_otp(to_email, otp_code):
     sender = os.getenv("SMTP_EMAIL")
     pwd = os.getenv("SMTP_PASSWORD")
+    try:
+        if not sender and "SMTP_EMAIL" in st.secrets:
+            sender = st.secrets["SMTP_EMAIL"]
+        if not pwd and "SMTP_PASSWORD" in st.secrets:
+            pwd = st.secrets["SMTP_PASSWORD"]
+    except Exception:
+        pass
+
     if not sender or not pwd:
-        st.warning(f"🔧 DEV MODE: SMTP not configured. Your OTP is: **{otp_code}**")
+        st.session_state["dev_otp_message"] = f"🔧 DEV MODE: SMTP not configured. Your OTP is: **{otp_code}**"
         return True
     
     msg = EmailMessage()
@@ -32,7 +40,7 @@ def send_otp(to_email, otp_code):
         server.quit()
         return True
     except Exception as e:
-        st.error("Failed to send email. Check SMTP configuration.")
+        st.error(f"Failed to send email. Check SMTP configuration. Exception: {e}")
         return False
 
 
@@ -135,10 +143,12 @@ def login_page():
                             st.rerun()
 
             elif st.session_state.reg_state == "verify":
+                if "dev_otp_message" in st.session_state:
+                    st.warning(st.session_state.pop("dev_otp_message"))
                 st.info(f"An OTP has been sent to {st.session_state.reg_data['email']}")
                 otp_input = st.text_input("Enter 6-digit OTP", key="reg_otp_in")
                 if st.button("Verify & Register", use_container_width=True, key="reg_verify_btn"):
-                    if otp_input == st.session_state.reg_otp:
+                    if otp_input.strip() == st.session_state.reg_otp:
                         d = st.session_state.reg_data
                         db.add_user(d["email"], hash_password(d["pass"]), d["role"], d["dept"])
                         st.success("✅ Registration successful! You can now login.")
@@ -169,11 +179,13 @@ def login_page():
                             st.rerun()
                             
             elif st.session_state.forgot_state == "verify":
+                if "dev_otp_message" in st.session_state:
+                    st.warning(st.session_state.pop("dev_otp_message"))
                 st.info(f"OTP sent to {st.session_state.forgot_email}")
                 for_otp = st.text_input("Enter 6-digit OTP", key="for_otp_in")
                 new_pass = st.text_input("New Password", type="password", key="for_pass")
                 if st.button("Reset Password", use_container_width=True, key="for_verify_btn"):
-                    if for_otp == st.session_state.forgot_otp:
+                    if for_otp.strip() == st.session_state.forgot_otp:
                         if not new_pass:
                             st.error("New password required.")
                         else:
