@@ -269,10 +269,12 @@ def delete_vendor(vendor_id):
 
 
 # ── Inventory Master ───────────────────────────
-def get_all_items():
     df = _all_records(WS_INVENTORY)
-    if not df.empty and "Unique_Name" in df.columns:
-        df = df.sort_values(by="Unique_Name", key=lambda col: col.astype(str).str.lower()).reset_index(drop=True)
+    if not df.empty:
+        # Filter to only active headers to hide removed columns like Pack_Size
+        df = df[[c for c in INVENTORY_HEADERS if c in df.columns]]
+        if "Unique_Name" in df.columns:
+            df = df.sort_values(by="Unique_Name", key=lambda col: col.astype(str).str.lower()).reset_index(drop=True)
     return df
 
 
