@@ -301,9 +301,6 @@ st.sidebar.markdown(f"""
             {role}
         </span>
     </div>
-    <div style="margin-top: 10px; font-size: 0.65rem; color: #94a3b8; font-family: 'Inter', sans-serif; text-align: right; opacity: 0.6;">
-        Version: v1.0.1 - Emerald Fix
-    </div>
 </div>
 """, unsafe_allow_html=True)
 st.sidebar.divider()
