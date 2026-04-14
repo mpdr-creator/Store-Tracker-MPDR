@@ -228,7 +228,17 @@ def _update_cell_by_id(name, id_col, id_val, updates: dict):
     headers = call_with_retry(ws.row_values, 1)
 
     for i, rec in enumerate(records):
-        if str(rec.get(id_col)) == str(id_val):
+        db_val = str(rec.get(id_col)).strip()
+        search_val = str(id_val).strip()
+        
+        # Email comparison is case-insensitive
+        match = False
+        if id_col.lower() == "email":
+            match = db_val.lower() == search_val.lower()
+        else:
+            match = db_val == search_val
+
+        if match:
             row_idx = i + 2  # +1 header, +1 zero-index
             for col_name, new_val in updates.items():
                 if col_name in headers:
@@ -465,17 +475,19 @@ def get_users():
 
 
 def get_user(email):
+    if not email: return None
     df = get_users()
     if df.empty:
         return None
-    match = df[df["Email"] == email]
+    email_clean = str(email).strip().lower()
+    match = df[df["Email"].str.strip().str.lower() == email_clean]
     return match.iloc[0] if not match.empty else None
 
 
 def add_user(email, password_hash, role, department=""):
     _append(WS_USERS, {
         "UserID": generate_id(6),
-        "Email": email,
+        "Email": str(email).strip().lower(),
         "Password_Hash": password_hash,
         "Role": role,
         "Department": department,
@@ -484,7 +496,7 @@ def add_user(email, password_hash, role, department=""):
 
 def update_password(email, new_hash):
     """Update password hash for existing user."""
-    return _update_cell_by_id(WS_USERS, "Email", email, {"Password_Hash": new_hash})
+    return _update_cell_by_id(WS_USERS, "Email", str(email).strip().lower(), {"Password_Hash": new_hash})
 
 
 def delete_user(user_id):
