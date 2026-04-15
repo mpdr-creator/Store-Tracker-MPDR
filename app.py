@@ -613,8 +613,17 @@ def admin_inventory():
                     st.error("Unique Name and Material Name are required.")
                 else:
                     item_id = db.add_item(
-                        unique_name, material_name, cas, grade,
-                        manufacturer, units, opening, min_stock, mat_type, pack_size=pack_size, updated_by=email,
+                        unique_name=unique_name,
+                        material_name=material_name,
+                        cas_no=cas,
+                        grade=grade,
+                        manufacturer=manufacturer,
+                        units=units,
+                        pack_size=pack_size,
+                        material_type=mat_type,
+                        opening_stock=opening,
+                        min_stock=min_stock,
+                        updated_by=email,
                     )
                     st.success(f"✅ Item added: **{unique_name}** (ID: {item_id})")
                     _load_inventory_with_stock.clear()
