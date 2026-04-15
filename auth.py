@@ -3,8 +3,8 @@
 # ──────────────────────────────────────────────
 import streamlit as st
 import bcrypt
+import os
 import db
-from branding import get_morepen_logo_html
 
 
 def hash_password(password: str) -> str:
@@ -24,8 +24,9 @@ def login_page():
     # Centre the login card
     col_l, col_m, col_r = st.columns([1, 2, 1])
     with col_m:
+        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo-1.png")
         st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
-        st.markdown(get_morepen_logo_html(), unsafe_allow_html=True)
+        st.image(logo_path, use_container_width=True)
         st.markdown(
             """
             <div style="text-align:center; margin-top: 8px; margin-bottom: 20px;">
