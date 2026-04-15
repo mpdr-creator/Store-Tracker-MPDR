@@ -260,6 +260,7 @@ def _display_store_timings():
 # ── Imports (after st.set_page_config) ──────────
 import db
 import auth
+from branding import get_morepen_logo_html
 from config import DEPARTMENTS, ROLES, TRANSACTION_TYPES, PO_HEADERS, PO_UNITS
 
 # ── Database init ───────────────────────────────
@@ -289,6 +290,8 @@ auth.require_login()
 # ── Sidebar ─────────────────────────────────────
 role = auth.current_role()
 email = auth.current_user()
+
+st.sidebar.markdown(get_morepen_logo_html(compact=True), unsafe_allow_html=True)
 
 st.sidebar.markdown(f"""
 <div style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
