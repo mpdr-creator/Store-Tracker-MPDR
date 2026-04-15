@@ -4,6 +4,7 @@
 import streamlit as st
 import bcrypt
 import db
+from branding import get_morepen_logo_html
 
 
 def hash_password(password: str) -> str:
@@ -23,13 +24,15 @@ def login_page():
     # Centre the login card
     col_l, col_m, col_r = st.columns([1, 2, 1])
     with col_m:
+        st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
+        st.markdown(get_morepen_logo_html(), unsafe_allow_html=True)
         st.markdown(
             """
-            <div style="text-align:center; margin-top:40px; margin-bottom: 20px;">
-                <div style="font-family: 'Montserrat', sans-serif; color: #1e293b; margin-bottom:0; font-size: 2.5rem; font-weight: 700;">
-                    <span style="color: #10b981;">📦</span> Store Tracker
+            <div style="text-align:center; margin-top: 8px; margin-bottom: 20px;">
+                <div style="font-family: 'Montserrat', sans-serif; color: #1e293b; margin-bottom:0; font-size: 2.2rem; font-weight: 700;">
+                    Store Tracker
                 </div>
-                <p style="color: #64748b; font-family: 'Inter', sans-serif; font-size: 1.1rem; font-weight: 500;">
+                <p style="color: #64748b; font-family: 'Inter', sans-serif; font-size: 1.05rem; font-weight: 500;">
                     MPDR Chemical Inventory Management
                 </p>
             </div>
