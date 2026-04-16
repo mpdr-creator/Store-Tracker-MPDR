@@ -5,6 +5,7 @@
 SPREADSHEET_NAME = "Store Tracker DB"
 SHARE_EMAIL = "mpdr.services@gmail.com"
 LOGO_FILENAME = "logo-2.png"
+FAVICON_FILENAME = "logo-3.png"
 
 # Google API Scopes
 SCOPES = [
