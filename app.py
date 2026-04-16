@@ -421,8 +421,8 @@ def admin_dashboard():
         # Inventory table
         st.subheader("📋 Full Inventory")
         if not inv.empty:
-            display_cols = ["Item_ID", "Unique_Name", "Material_Name", "CAS_No",
-                            "Grade_Purity", "Manufacturer", "Units", "Pack_Size", "Min_Stock", "Status", "Available_Stock"]
+            display_cols = ["Item_ID", "Unique_Name", "Material_Name", "CAS_No", "Grade_Purity", 
+                            "Pack_Size", "Min_Stock", "Status", "Manufacturer", "Units", "Available_Stock"]
             display_df = inv[[c for c in display_cols if c in inv.columns]].copy()
             display_df.insert(0, "S.No", range(1, len(display_df) + 1))
 
@@ -1242,7 +1242,7 @@ def scientist_stock_viewer():
 
     # Show table
     cols_to_show = ["Item_ID", "Unique_Name", "Material_Name", "CAS_No", "Grade_Purity",
-                    "Manufacturer", "Units", "Pack_Size", "Min_Stock", "Status", "Available_Stock"]
+                    "Pack_Size", "Min_Stock", "Status", "Manufacturer", "Units", "Available_Stock"]
     show_df = display[[c for c in cols_to_show if c in display.columns]].copy()
     show_df.insert(0, "S.No", range(1, len(show_df) + 1))
 
