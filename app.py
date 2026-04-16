@@ -9,8 +9,9 @@ import datetime
 import os
 
 # Resolve logo path
+from config import LOGO_FILENAME
 base_dir = os.path.dirname(os.path.abspath(__file__))
-logo_path = os.path.join(base_dir, "logo-1.png")
+logo_path = os.path.join(base_dir, LOGO_FILENAME)
 
 st.set_page_config(
     page_title="Store Tracker",
