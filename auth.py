@@ -5,6 +5,7 @@ import streamlit as st
 import bcrypt
 import os
 import db
+from config import LOGO_FILENAME
 
 
 def hash_password(password: str) -> str:
@@ -24,7 +25,7 @@ def login_page():
     # Centre the login card
     col_l, col_m, col_r = st.columns([1, 2, 1])
     with col_m:
-        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo-1.png")
+        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), LOGO_FILENAME)
         st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
         
         if os.path.exists(logo_path):
