@@ -302,11 +302,12 @@ if os.path.exists(logo_path):
     logo_l, logo_m, logo_r = st.sidebar.columns([1, 4, 1])
     with logo_m:
         st.image(logo_path, use_container_width=True)
+    st.sidebar.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True) 
 else:
     st.sidebar.title("📦 Store Tracker")
 
 st.sidebar.markdown(f"""
-<div style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+<div style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 10px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
         <div style="background: #f1f5f9; padding: 8px; border-radius: 50%; font-size: 1rem;">👤</div>
         <div style="font-size: 0.85rem; font-weight: 700; color: #1e293b; word-break: break-all; font-family: 'Inter', sans-serif;">{email}</div>
