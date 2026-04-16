@@ -8,9 +8,13 @@ import plotly.graph_objects as go
 import datetime
 import os
 
+# Resolve logo path
+base_dir = os.path.dirname(os.path.abspath(__file__))
+logo_path = os.path.join(base_dir, "logo-1.png")
+
 st.set_page_config(
     page_title="Store Tracker",
-    page_icon="📦",
+    page_icon=logo_path if os.path.exists(logo_path) else "📦",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -290,7 +294,14 @@ auth.require_login()
 role = auth.current_role()
 email = auth.current_user()
 
-st.sidebar.image(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo-1.png"), use_container_width=True)
+# Sidebar Logo Integration
+if os.path.exists(logo_path):
+    # Centered logo with controlled width
+    logo_l, logo_m, logo_r = st.sidebar.columns([1, 4, 1])
+    with logo_m:
+        st.image(logo_path, use_container_width=True)
+else:
+    st.sidebar.title("📦 Store Tracker")
 
 st.sidebar.markdown(f"""
 <div style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
