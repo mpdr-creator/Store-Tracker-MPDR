@@ -8,14 +8,15 @@ import plotly.graph_objects as go
 import datetime
 import os
 
-# Resolve logo path
-from config import LOGO_FILENAME
+# Resolve logo paths
+from config import LOGO_FILENAME, FAVICON_FILENAME
 base_dir = os.path.dirname(os.path.abspath(__file__))
 logo_path = os.path.join(base_dir, LOGO_FILENAME)
+favicon_path = os.path.join(base_dir, FAVICON_FILENAME)
 
 st.set_page_config(
     page_title="Store Tracker",
-    page_icon=logo_path if os.path.exists(logo_path) else "📦",
+    page_icon=favicon_path if os.path.exists(favicon_path) else logo_path,
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -1032,23 +1033,29 @@ def admin_po_track():
 
     df = db.get_po_track()
     
-    # Ensure all headers exist and have correct types for the editor
-    from config import PO_HEADERS, PO_UNITS
+    # 1. Fill missing columns and ensure consistent data types
     for col in PO_HEADERS:
         if col not in df.columns:
             df[col] = None
     
-    # Reorder columns
-    df = df[PO_HEADERS]
+    # 2. Reorder columns
+    df = df[PO_HEADERS].copy()
 
-    # Convert types for date and number columns
+    # 3. Type Conversion & Null Handling
     date_cols = ["PO Date", "Expected Delivery", "Follow-up Date", "Recived date"]
-    for col in date_cols:
-        df[col] = pd.to_datetime(df[col], errors='coerce')
-    
     num_cols = ["Ordered Qty(G)", "Days to deliver"]
-    for col in num_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    for col in df.columns:
+        if col in date_cols:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+        elif col in num_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+        else:
+            # Everything else treated as string to avoid mixed-type blocks
+            df[col] = df[col].astype(str).replace("None", "").replace("nan", "").replace("NaN", "")
+
+    # 4. Final cleaning for the editor
+    df = df.reset_index(drop=True)
 
     # Define row-level styling for the Review tab
     def style_po_rows(row):
