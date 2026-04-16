@@ -254,10 +254,11 @@ def get_vendors():
     return _all_records(WS_VENDORS)
 
 
-def add_vendor(company_name, contact, email, notes):
+def add_vendor(company_name, contact_person, contact, email, notes):
     _append(WS_VENDORS, {
         "Vendor_ID": generate_id(6),
         "Company_Name": company_name,
+        "Contact_Person": contact_person,
         "Contact_Number": contact,
         "Email": email,
         "Notes": notes,

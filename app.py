@@ -1199,15 +1199,16 @@ def admin_vendors(is_admin=True):
                 st.subheader("Register New Supplier")
                 c1, c2 = st.columns(2)
                 co_name = c1.text_input("Suppliers / Company Name *")
-                contact = c2.text_input("Contact Number *")
-                email_id = c1.text_input("Email ID *")
-                notes = c2.text_input("Others (Notes)")
+                spoc = c2.text_input("Contact Person (SPOC)")
+                contact = c1.text_input("Contact Number *")
+                email_id = c2.text_input("Email ID *")
+                notes = st.text_area("Others (Notes)", placeholder="Extra details...", height=68)
                 
                 if st.form_submit_button("➕ Save Supplier", use_container_width=True):
                     if not co_name or not contact or not email_id:
                         st.error("Company Name, Contact, and Email are required.")
                     else:
-                        db.add_vendor(co_name, contact, email_id, notes)
+                        db.add_vendor(co_name, spoc, contact, email_id, notes)
                         st.success(f"Supplier **{co_name}** added successfully.")
                         st.rerun()
 
