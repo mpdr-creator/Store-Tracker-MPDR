@@ -26,7 +26,9 @@ def login_page():
     with col_m:
         logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo-1.png")
         st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
-        st.image(logo_path, use_container_width=True)
+        logo_l, logo_c, logo_r = st.columns([1.2, 2.2, 1.2])
+        with logo_c:
+            st.image(logo_path, width=420)
         st.markdown(
             """
             <div style="text-align:center; margin-top: 8px; margin-bottom: 20px;">
