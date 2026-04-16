@@ -28,7 +28,7 @@ def login_page():
         st.markdown('<div style="margin-top: 28px;"></div>', unsafe_allow_html=True)
         logo_l, logo_c, logo_r = st.columns([1.2, 2.2, 1.2])
         with logo_c:
-            st.image(logo_path, width=420)
+            st.image(logo_path, width=210)
         st.markdown(
             """
             <div style="text-align:center; margin-top: 8px; margin-bottom: 20px;">
