@@ -419,16 +419,17 @@ def submit_request(item_id, requested_by, department, quantity):
         "Quantity": quantity,
         "Status": "PENDING",
         "Timestamp": get_ist_now().strftime("%Y-%m-%d %H:%M:%S"),
-        "Approved_By": "",
-        "Approval_Time": "",
+        "Accepted_By": "",
+        "Accepted_Time": "",
+        "Dispatched_Time": "",
         "Remarks": "",
     })
     return True, f"Request {req_id} submitted."
 
 
-def approve_request(request_id, approved_by, remarks=""):
+def accept_request(request_id, accepted_by, remarks=""):
     """
-    Approve a request:
+    Accept a request:
       1. Re-validate stock
       2. Insert ISSUED ledger entry (negative qty)
       3. Update request status
@@ -442,8 +443,9 @@ def approve_request(request_id, approved_by, remarks=""):
         return False, "Request not found."
     row = row.iloc[0]
 
-    if row["Status"] != "PENDING":
-        return False, f"Request is already {row['Status']}."
+    # Handle legacy APPROVED status as well as PENDING
+    if row["Status"] not in ["PENDING", "APPROVED"]:
+        return False, f"Request is in {row['Status']} state and cannot be accepted."
 
     item_id = str(row["Item_ID"])
     qty = float(row["Quantity"])
@@ -451,33 +453,56 @@ def approve_request(request_id, approved_by, remarks=""):
     # Re-validate stock at approval time (concurrency safety)
     available = compute_stock(item_id)
     if qty > available:
-        return False, f"Insufficient stock to approve. Available: {available}"
+        return False, f"Insufficient stock to accept. Available: {available}"
 
     # Insert ISSUED ledger entry
     add_ledger_entry(item_id, "ISSUED", -qty,
-                     reference_id=request_id, updated_by=approved_by)
+                     reference_id=request_id, updated_by=accepted_by)
 
     # Update request
     now = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
     _update_cell_by_id(WS_REQUESTS, "Request_ID", request_id, {
-        "Status": "APPROVED",
-        "Approved_By": approved_by,
-        "Approval_Time": now,
+        "Status": "ACCEPTED",
+        "Accepted_By": accepted_by,
+        "Accepted_Time": now,
         "Remarks": remarks,
     })
-    return True, "Request approved and stock deducted."
+    return True, "Request accepted and stock deducted."
 
 
 def reject_request(request_id, rejected_by, remarks=""):
-    """Reject a pending request."""
+    """Reject a pending/accepted request."""
     now = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
     ok = _update_cell_by_id(WS_REQUESTS, "Request_ID", request_id, {
         "Status": "REJECTED",
-        "Approved_By": rejected_by,
-        "Approval_Time": now,
+        "Accepted_By": rejected_by,
+        "Accepted_Time": now,
         "Remarks": remarks,
     })
     return ok, "Request rejected." if ok else "Request not found."
+
+
+def dispatch_request(request_id):
+    """Mark an ACCEPTED request as DISPATCHED."""
+    requests_df = get_requests()
+    if requests_df.empty:
+        return False, "No requests found."
+
+    row = requests_df[requests_df["Request_ID"] == request_id]
+    if row.empty:
+        return False, "Request not found."
+    row = row.iloc[0]
+
+    # Can only dispatch from ACCEPTED state (or legacy APPROVED)
+    if row["Status"] not in ["ACCEPTED", "APPROVED"]:
+        return False, f"Only accepted requests can be dispatched (current: {row['Status']})."
+
+    now = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+    ok = _update_cell_by_id(WS_REQUESTS, "Request_ID", request_id, {
+        "Status": "DISPATCHED",
+        "Dispatched_Time": now,
+    })
+    return ok, "Request marked as DISPATCHED." if ok else "Error updating status."
 
 
 # ── Users ──────────────────────────────────────

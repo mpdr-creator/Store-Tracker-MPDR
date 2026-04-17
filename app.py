@@ -838,8 +838,8 @@ def admin_requests():
                     
                     remark = st.text_input("Remarks", key=f"rmk_{req['Request_ID']}", placeholder="Optional reason...")
 
-                    if c2.button("✅ Approve", key=f"app_{req['Request_ID']}", use_container_width=True):
-                        ok, msg = db.approve_request(req["Request_ID"], email, remarks=remark)
+                    if c2.button("✅ Accept", key=f"app_{req['Request_ID']}", use_container_width=True):
+                        ok, msg = db.accept_request(req["Request_ID"], email, remarks=remark)
                         if ok:
                             st.success(msg)
                             _load_inventory_with_stock.clear()
@@ -858,26 +858,51 @@ def admin_requests():
     with tab_all:
         all_req = db.get_requests()
         if not all_req.empty:
-            status_filter = st.multiselect("Filter by Status", ["PENDING", "APPROVED", "REJECTED"],
-                                           default=["PENDING", "APPROVED", "REJECTED"])
+            status_filter = st.multiselect("Filter by Status", ["PENDING", "ACCEPTED", "APPROVED", "REJECTED", "DISPATCHED"],
+                                           default=["PENDING", "ACCEPTED", "APPROVED", "REJECTED", "DISPATCHED"])
             filtered = all_req[all_req["Status"].isin(status_filter)]
             
-            inv = db.get_all_items()
-            if not inv.empty:
-                filtered = filtered.merge(inv[["Item_ID", "Unique_Name"]], on="Item_ID", how="left")
+            # Add Dispatch button in a dynamic way for Accepted items
+            st.divider()
+            st.subheader("🚚 Pending Dispatch")
+            to_dispatch = filtered[filtered["Status"].isin(["ACCEPTED", "APPROVED"])]
+            if to_dispatch.empty:
+                st.info("No items ready for dispatch.")
+            else:
+                for _, d_req in to_dispatch.iterrows():
+                    d_item_name = inv[inv["Item_ID"] == str(d_req["Item_ID"])].iloc[0]["Unique_Name"] if not inv.empty else d_req["Item_ID"]
+                    with st.expander(f"📦 DISPATCH: {d_item_name} ({d_req['Quantity']} units to {d_req['Department']})"):
+                        st.write(f"**Accepted on:** {d_req.get('Accepted_Time', d_req.get('Approval_Time', 'N/A'))}")
+                        if st.button(f"🚚 Confirm Dispatch", key=f"disp_{d_req['Request_ID']}", use_container_width=True):
+                            ok, msg = db.dispatch_request(d_req["Request_ID"])
+                            if ok:
+                                st.success(msg)
+                                st.rerun()
+                            else:
+                                st.error(msg)
+
+            st.divider()
+            st.subheader("📋 Full Request History")
             
             # Reorder columns to put Unique_Name first and drop internal IDs
-            cols_to_drop = ["Request_ID", "Item_ID"]
-            display_df = filtered.drop(columns=cols_to_drop, errors="ignore")
+            display_df = filtered.copy()
             
-            # Attempt to move Unique_Name to the front if it exists
-            if "Unique_Name" in display_df.columns:
-                cols = ["Unique_Name"] + [c for c in display_df.columns if c != "Unique_Name"]
-                display_df = display_df[cols]
+            # Map columns for cleaner UI
+            ui_col_map = {
+                "Timestamp": "Raised Time",
+                "Accepted_Time": "Accepted Time",
+                "Dispatched_Time": "Dispatched Time",
+                "Accepted_By": "Admin"
+            }
+            display_df = display_df.rename(columns=ui_col_map)
             
-            display_df.insert(0, "S.No", range(1, len(display_df) + 1))
+            # Select essential columns for the history table
+            final_cols = ["S.No", "Unique_Name", "Quantity", "Department", "Status", "Raised Time", "Accepted Time", "Dispatched Time", "Remarks"]
+            cols_to_show = [c for c in final_cols if c in display_df.columns]
+            
+            display_df = display_df[cols_to_show]
 
-            st.dataframe(display_df.style.format({"Quantity": format_2_decimals}), use_container_width=True, height=400, hide_index=True)
+            st.dataframe(display_df.style.map(status_color, subset=["Status"]).format({"Quantity": format_2_decimals}), use_container_width=True, height=400, hide_index=True)
             st.download_button("📥 Export CSV", data=display_df.to_csv(index=False).encode('utf-8'), file_name="requests_export.csv", mime="text/csv")
         else:
             st.info("No requests yet.")
@@ -1355,17 +1380,32 @@ def scientist_my_requests():
     def status_color(status):
         if status == "PENDING":
             return f"color: {STATUS_PALETTE['warning']['text']}; font-weight: bold;"
-        elif status == "APPROVED":
+        elif status in ["ACCEPTED", "APPROVED"]:
             return f"color: {STATUS_PALETTE['success']['text']}; font-weight: bold;"
+        elif status == "DISPATCHED":
+            return f"color: {STATUS_PALETTE['info']['text']}; font-weight: bold;"
         elif status == "REJECTED":
             return f"color: {STATUS_PALETTE['danger']['text']}; font-weight: bold;"
         return "color: #374151;"
 
 
-    cols = ["Unique_Name", "Quantity", "Department", "Status",
-                        "Timestamp", "Remarks", "Approved_By", "Approval_Time"]
-    req_cols = [c for c in cols if c in reqs.columns]
-    display_reqs = reqs[req_cols].copy()
+    # Label columns for the scientists
+    ui_map = {
+        "Timestamp": "Raised Time",
+        "Accepted_Time": "Accepted Time",
+        "Dispatched_Time": "Dispatched Time",
+        "Accepted_By": "Admin"
+    }
+    
+    # Identify available columns (handling legacy names in case of partial migration)
+    data_df = reqs.rename(columns=ui_map).copy()
+    if "Approval_Time" in data_df.columns and "Accepted Time" not in data_df.columns:
+        data_df = data_df.rename(columns={"Approval_Time": "Accepted Time"})
+    
+    final_cols = ["Unique_Name", "Quantity", "Department", "Status", "Raised Time", "Accepted Time", "Dispatched Time", "Remarks"]
+    req_cols = [c for c in final_cols if c in data_df.columns]
+    
+    display_reqs = data_df[req_cols].copy()
     display_reqs.insert(0, "S.No", range(1, len(display_reqs) + 1))
     styled = display_reqs.style.map(status_color, subset=["Status"]).format({"Quantity": format_2_decimals})
     st.dataframe(styled, use_container_width=True, height=400, hide_index=True)
@@ -1386,12 +1426,12 @@ def management_dashboard():
     c1, c2, c3, c4 = st.columns(4)
     total_items = len(inv) if not inv.empty else 0
     total_reqs = len(reqs) if not reqs.empty else 0
-    approved = len(reqs[reqs["Status"] == "APPROVED"]) if not reqs.empty else 0
+    approved = len(reqs[reqs["Status"].isin(["ACCEPTED", "APPROVED", "DISPATCHED"])]) if not reqs.empty else 0
     pending = len(reqs[reqs["Status"] == "PENDING"]) if not reqs.empty else 0
 
     c1.metric("Total Items", total_items)
     c2.metric("Total Requests", total_reqs)
-    c3.metric("Approved", approved)
+    c3.metric("Accepted/Issued", approved)
     c4.metric("Pending", pending)
 
     st.divider()
@@ -1406,7 +1446,7 @@ def management_dashboard():
     with col_left:
         st.subheader("📊 Department-wise Consumption")
         if not reqs.empty:
-            approved_reqs = reqs[reqs["Status"] == "APPROVED"].copy()
+            approved_reqs = reqs[reqs["Status"].isin(["ACCEPTED", "APPROVED", "DISPATCHED"])].copy()
             if not approved_reqs.empty:
                 approved_reqs["Quantity"] = pd.to_numeric(approved_reqs["Quantity"], errors="coerce")
                 dept_data = approved_reqs.groupby("Department")["Quantity"].sum().reset_index()
@@ -1424,7 +1464,7 @@ def management_dashboard():
     with col_right:
         st.subheader("🔝 Top 10 Most Requested Chemicals")
         if not reqs.empty:
-            approved_reqs = reqs[reqs["Status"] == "APPROVED"].copy()
+            approved_reqs = reqs[reqs["Status"].isin(["ACCEPTED", "APPROVED", "DISPATCHED"])].copy()
             if not approved_reqs.empty and not inv.empty:
                 approved_reqs["Quantity"] = pd.to_numeric(approved_reqs["Quantity"], errors="coerce")
                 top_items = approved_reqs.groupby("Item_ID")["Quantity"].sum().nlargest(10).reset_index()
@@ -1481,9 +1521,13 @@ def management_dashboard():
         if not reqs.empty:
             status_counts = reqs["Status"].value_counts().reset_index()
             status_counts.columns = ["Status", "Count"]
-            colors = {"PENDING": STATUS_PALETTE["warning"]["text"], 
-                      "APPROVED": STATUS_PALETTE["success"]["text"], 
-                      "REJECTED": STATUS_PALETTE["danger"]["text"]}
+            colors = {
+                "PENDING": STATUS_PALETTE["warning"]["text"], 
+                "ACCEPTED": STATUS_PALETTE["success"]["text"], 
+                "APPROVED": STATUS_PALETTE["success"]["text"], 
+                "DISPATCHED": STATUS_PALETTE["info"]["text"], 
+                "REJECTED": STATUS_PALETTE["danger"]["text"]
+            }
             fig = px.pie(status_counts, names="Status", values="Count",
                          color="Status",
                          color_discrete_map=colors,
