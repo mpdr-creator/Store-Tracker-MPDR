@@ -2,6 +2,9 @@
 
 🏥 A web-based inventory and request management system for pharmaceutical companies.
 
+## Developer
+**Sree Vasthav Upputoori**
+
 ## Features
 
 - ✅ **Material Inventory** — Track solvents, reagents, raw materials, buffers, media, lab supplies
@@ -12,12 +15,6 @@
 - ✅ **Auto-Deduction** — Approved requests automatically deduct from main stock
 - ✅ **Full Audit Trail** — Complete history of all transactions
 - ✅ **User Management** — Role-based access (Admin, Manager, User)
-
-## Demo
-
-Login with default credentials:
-- **Username:** admin
-- **Password:** admin123
 
 ## Quick Start
 
