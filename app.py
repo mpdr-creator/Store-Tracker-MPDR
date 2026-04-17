@@ -903,14 +903,14 @@ def admin_requests():
             # Map columns for cleaner UI
             ui_col_map = {
                 "Timestamp": "Raised Time",
-                "Accepted_Time": "Accepted Time",
+                "Accepted_Time": "Accepted / Rejected Time",
                 "Dispatched_Time": "Dispatched Time",
                 "Accepted_By": "Admin"
             }
             display_df = display_df.rename(columns=ui_col_map)
             
             # Select essential columns for the history table
-            final_cols = ["S.No", "Unique_Name", "Quantity", "Department", "Status", "Raised Time", "Accepted Time", "Dispatched Time", "Remarks"]
+            final_cols = ["S.No", "Unique_Name", "Quantity", "Department", "Status", "Raised Time", "Accepted / Rejected Time", "Dispatched Time", "Remarks"]
             cols_to_show = [c for c in final_cols if c in display_df.columns]
             
             display_df = display_df[cols_to_show]
@@ -1393,17 +1393,17 @@ def scientist_my_requests():
     # Label columns for the scientists
     ui_map = {
         "Timestamp": "Raised Time",
-        "Accepted_Time": "Accepted Time",
+        "Accepted_Time": "Accepted / Rejected Time",
         "Dispatched_Time": "Dispatched Time",
         "Accepted_By": "Admin"
     }
     
     # Identify available columns (handling legacy names in case of partial migration)
     data_df = reqs.rename(columns=ui_map).copy()
-    if "Approval_Time" in data_df.columns and "Accepted Time" not in data_df.columns:
-        data_df = data_df.rename(columns={"Approval_Time": "Accepted Time"})
+    if "Approval_Time" in data_df.columns and "Accepted / Rejected Time" not in data_df.columns:
+        data_df = data_df.rename(columns={"Approval_Time": "Accepted / Rejected Time"})
     
-    final_cols = ["Unique_Name", "Quantity", "Department", "Status", "Raised Time", "Accepted Time", "Dispatched Time", "Remarks"]
+    final_cols = ["Unique_Name", "Quantity", "Department", "Status", "Raised Time", "Accepted / Rejected Time", "Dispatched Time", "Remarks"]
     req_cols = [c for c in final_cols if c in data_df.columns]
     
     display_reqs = data_df[req_cols].copy()
