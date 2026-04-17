@@ -1357,7 +1357,8 @@ def scientist_submit_request():
         else:
             cart_df = pd.DataFrame(cart)
             cart_df.insert(0, "S.No", range(1, len(cart_df) + 1))
-            st.dataframe(cart_df[["S.No", "name", "dept", "qty"]], use_container_width=True, hide_index=True)
+            cart_df = cart_df.rename(columns={"item_id": "Item_ID", "name": "Name", "dept": "Dept", "qty": "Qty"})
+            st.dataframe(cart_df[["S.No", "Item_ID", "Name", "Dept", "Qty"]], use_container_width=True, hide_index=True)
             if st.button("🗑️ Clear Cart", use_container_width=True):
                 st.session_state["cart"] = []
                 st.rerun()
