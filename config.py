@@ -40,7 +40,7 @@ LEDGER_HEADERS = [
 # Requests headers
 REQUESTS_HEADERS = [
     "Request_ID", "Item_ID", "Requested_By", "Department",
-    "Quantity", "Status", "Timestamp", "Accepted_By", "Accepted_Time", "Dispatched_Time", "Remarks",
+    "Quantity", "Status", "Timestamp", "Accepted_By", "Accepted_Time", "Dispatched_Time", "Received_Time", "Remarks",
 ]
 
 # Users headers
@@ -52,7 +52,7 @@ USERS_HEADERS = [
 DEPARTMENTS = ["API", "CDMO", "MedChem", "AR&D", "SSD"]
 ROLES = ["Admin", "Scientist", "Management"]
 TRANSACTION_TYPES = ["OPENING", "RECEIVED", "ISSUED", "ADJUSTMENT"]
-REQUEST_STATUSES = ["PENDING", "ACCEPTED", "REJECTED", "DISPATCHED"]
+REQUEST_STATUSES = ["PENDING", "ACCEPTED", "REJECTED", "DISPATCHED", "RECEIVED"]
 
 # Categories for display grouping
 CATEGORIES = ["Chemical", "Solvents", "Reagents", "Raw Materials",

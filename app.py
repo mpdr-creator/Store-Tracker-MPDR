@@ -220,7 +220,8 @@ STATUS_PALETTE = {
     "danger": {"bg": "#fef2f2", "text": "#991b1b"},
     "warning": {"bg": "#fffbeb", "text": "#92400e"},
     "success": {"bg": "#f0fdfa", "text": "#0f766e"},
-    "info": {"bg": "#f0f9ff", "text": "#075985"}
+    "info": {"bg": "#f0f9ff", "text": "#075985"},
+    "indigo": {"bg": "#eef2ff", "text": "#3730a3"}
 }
 
 def status_color(status):
@@ -230,6 +231,8 @@ def status_color(status):
         return f"color: {STATUS_PALETTE['success']['text']}; font-weight: bold;"
     elif status == "DISPATCHED":
         return f"color: {STATUS_PALETTE['info']['text']}; font-weight: bold;"
+    elif status == "RECEIVED":
+        return f"color: {STATUS_PALETTE['indigo']['text']}; font-weight: bold;"
     elif status == "REJECTED":
         return f"color: {STATUS_PALETTE['danger']['text']}; font-weight: bold;"
     return "color: #374151;"
@@ -894,29 +897,84 @@ def admin_requests():
                             else:
                                 st.error(msg)
 
-            st.divider()
-            st.subheader("📋 Full Request History")
-            
-            # Reorder columns to put Unique_Name first and drop internal IDs
-            display_df = filtered.copy()
-            
-            # Map columns for cleaner UI
-            ui_col_map = {
-                "Timestamp": "Raised Time",
-                "Accepted_Time": "Accepted / Rejected Time",
-                "Dispatched_Time": "Dispatched Time",
-                "Accepted_By": "Admin"
-            }
-            display_df = display_df.rename(columns=ui_col_map)
-            
-            # Select essential columns for the history table
-            final_cols = ["S.No", "Unique_Name", "Quantity", "Department", "Status", "Raised Time", "Accepted / Rejected Time", "Dispatched Time", "Remarks"]
-            cols_to_show = [c for c in final_cols if c in display_df.columns]
-            
-            display_df = display_df[cols_to_show]
+    with tab_h:
+        _render_request_history(reqs)
 
-            st.dataframe(display_df.style.map(status_color, subset=["Status"]).format({"Quantity": format_2_decimals}), use_container_width=True, height=400, hide_index=True)
-            st.download_button("📥 Export CSV", data=display_df.to_csv(index=False).encode('utf-8'), file_name="requests_export.csv", mime="text/csv")
+
+def _render_request_history(reqs, title="📜 Full Request History"):
+    """Centralized function to render request history for all roles."""
+    st.subheader(title)
+    if reqs.empty:
+        st.info("No request history available.")
+        return
+
+    # Add SLA Calculation
+    def calc_sla(row):
+        try:
+            acc = pd.to_datetime(row.get("Accepted_Time")) if row.get("Accepted_Time") else None
+            disp = pd.to_datetime(row.get("Dispatched_Time")) if row.get("Dispatched_Time") else None
+            if pd.isna(acc) or pd.isna(disp) or not acc or not disp:
+                return "-"
+            diff = (disp - acc).total_seconds() / 60
+            if diff > 30:
+                return f"⚠️ Delayed ({int(diff)}m)"
+            return f"✅ On-Time ({int(diff)}m)"
+        except:
+            return "-"
+
+    df_copy = reqs.copy()
+    df_copy["SLA (30m)"] = df_copy.apply(calc_sla, axis=1)
+
+    # Label columns for professional UI
+    ui_map = {
+        "Timestamp": "Raised Time",
+        "Accepted_Time": "Accepted / Rejected Time",
+        "Dispatched_Time": "Dispatched Time",
+        "Received_Time": "Received Time",
+        "Accepted_By": "Admin"
+    }
+    
+    # Identify available columns
+    data_df = df_copy.rename(columns=ui_map).copy()
+    
+    # Add Item Names if not present
+    if "Unique_Name" not in data_df.columns:
+        inv = db.get_all_items()
+        if not inv.empty:
+            data_df = data_df.merge(inv[["Item_ID", "Unique_Name"]], on="Item_ID", how="left")
+    
+    final_cols = [
+        "S.No", "Unique_Name", "Quantity", "Department", "Status", 
+        "SLA (30m)", "Raised Time", "Accepted / Rejected Time", 
+        "Dispatched Time", "Received Time", "Remarks"
+    ]
+    
+    if "S.No" not in data_df.columns:
+        data_df.insert(0, "S.No", range(1, len(data_df) + 1))
+        
+    actual_cols = [c for c in final_cols if c in data_df.columns]
+    
+    display_reqs = data_df[actual_cols].copy()
+    styled = display_reqs.style.map(status_color, subset=["Status"]).format({"Quantity": format_2_decimals})
+    st.dataframe(styled, use_container_width=True, height=400, hide_index=True)
+
+    # Receipt confirmation for scientists
+    if auth.current_role() == "Scientist":
+        dispatched = reqs[reqs["Status"] == "DISPATCHED"]
+        if not dispatched.empty:
+            st.divider()
+            st.markdown("### 📦 Confirm Received Materials")
+            for idx, row in dispatched.iterrows():
+                inv_data = db.get_item(row["Item_ID"])
+                item_name = inv_data["Unique_Name"] if not inv_data.empty else "Item"
+                with st.expander(f"Confirm Receipt: {item_name} ({row['Quantity']} units)"):
+                    if st.button(f"I have received this chemical", key=f"rec_btn_{row['Request_ID']}"):
+                        ok, res = db.receive_request(row["Request_ID"])
+                        if ok:
+                            st.success("Success! Receipt time recorded.")
+                            st.rerun()
+                        else:
+                            st.error(res)
         else:
             st.info("No requests yet.")
 
@@ -1379,37 +1437,14 @@ def scientist_submit_request():
 
 
 def scientist_my_requests():
-    st.title("📋 My Requests")
+    st.title("📋 My Request History")
 
     reqs = db.get_requests(requested_by=email)
     if reqs.empty:
         st.info("You haven't submitted any requests yet.")
         return
 
-    inv = db.get_all_items()
-    if not inv.empty:
-        reqs = reqs.merge(inv[["Item_ID", "Unique_Name"]], on="Item_ID", how="left")
-
-    # Label columns for the scientists
-    ui_map = {
-        "Timestamp": "Raised Time",
-        "Accepted_Time": "Accepted / Rejected Time",
-        "Dispatched_Time": "Dispatched Time",
-        "Accepted_By": "Admin"
-    }
-    
-    # Identify available columns (handling legacy names in case of partial migration)
-    data_df = reqs.rename(columns=ui_map).copy()
-    if "Approval_Time" in data_df.columns and "Accepted / Rejected Time" not in data_df.columns:
-        data_df = data_df.rename(columns={"Approval_Time": "Accepted / Rejected Time"})
-    
-    final_cols = ["Unique_Name", "Quantity", "Department", "Status", "Raised Time", "Accepted / Rejected Time", "Dispatched Time", "Remarks"]
-    req_cols = [c for c in final_cols if c in data_df.columns]
-    
-    display_reqs = data_df[req_cols].copy()
-    display_reqs.insert(0, "S.No", range(1, len(display_reqs) + 1))
-    styled = display_reqs.style.map(status_color, subset=["Status"]).format({"Quantity": format_2_decimals})
-    st.dataframe(styled, use_container_width=True, height=400, hide_index=True)
+    _render_request_history(reqs)
 
 
 # ════════════════════════════════════════════════
@@ -1458,32 +1493,36 @@ def management_dashboard():
                 fig.update_layout(_get_plotly_layout("Quantity per Department"))
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("No approved requests to show.")
-        else:
-            st.info("No requests data.")
+                st.info("No approved requests to plot for department consumption.")
 
     with col_right:
-        st.subheader("🔝 Top 10 Most Requested Chemicals")
+        st.subheader("⏱️ SLA Analytics (Dispatch Times)")
         if not reqs.empty:
-            approved_reqs = reqs[reqs["Status"].isin(["ACCEPTED", "APPROVED", "DISPATCHED"])].copy()
-            if not approved_reqs.empty and not inv.empty:
-                approved_reqs["Quantity"] = pd.to_numeric(approved_reqs["Quantity"], errors="coerce")
-                top_items = approved_reqs.groupby("Item_ID")["Quantity"].sum().nlargest(10).reset_index()
-                top_items = top_items.merge(inv[["Item_ID", "Unique_Name"]], on="Item_ID", how="left")
-                top_items["Label"] = top_items["Unique_Name"].fillna(top_items["Item_ID"])
-                fig = px.bar(top_items, x="Quantity", y="Label", orientation="h",
-                             color="Quantity",
-                             color_continuous_scale="Viridis",
-                             title="Top 10 by Total Quantity Issued")
-                fig.update_layout(_get_plotly_layout("Top 10 Chemicals"))
-                fig.update_layout(yaxis=dict(autorange="reversed"))
-                st.plotly_chart(fig, use_container_width=True)
+            # Filter for requests that have both Accept and Dispatch times
+            sla_df = reqs.dropna(subset=["Accepted_Time", "Dispatched_Time"]).copy()
+            sla_df = sla_df[(sla_df["Accepted_Time"] != "") & (sla_df["Dispatched_Time"] != "")]
+            
+            if not sla_df.empty:
+                sla_df["Acc_DT"] = pd.to_datetime(sla_df["Accepted_Time"])
+                sla_df["Disp_DT"] = pd.to_datetime(sla_df["Dispatched_Time"])
+                sla_df["Diff_Min"] = (sla_df["Disp_DT"] - sla_df["Acc_DT"]).dt.total_seconds() / 60
+                
+                # Categorize
+                sla_df["SLA_Status"] = sla_df["Diff_Min"].apply(lambda x: "On-Time (≤30m)" if x <= 30 else "Delayed (>30m)")
+                sla_summary = sla_df["SLA_Status"].value_counts().reset_index()
+                sla_summary.columns = ["Status", "Count"]
+                
+                fig2 = px.pie(sla_summary, names="Status", values="Count",
+                              color="Status",
+                              color_discrete_map={"On-Time (≤30m)": "#009688", "Delayed (>30m)": "#e53935"},
+                              hole=0.4)
+                fig2.update_layout(_get_plotly_layout("SLA Compliance"))
+                st.plotly_chart(fig2, use_container_width=True)
             else:
-                st.info("No approved requests to show.")
-        else:
-            st.info("No requests data.")
+                st.info("No dispatched items yet to calculate SLA.")
 
     st.divider()
+    _render_request_history(reqs, title="📜 Global Request History & SLA Tracking")
 
     # ── Charts row 2 ──
     col_left2, col_right2 = st.columns(2)

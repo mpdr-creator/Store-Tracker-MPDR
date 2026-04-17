@@ -422,6 +422,7 @@ def submit_request(item_id, requested_by, department, quantity):
         "Accepted_By": "",
         "Accepted_Time": "",
         "Dispatched_Time": "",
+        "Received_Time": "",
         "Remarks": "",
     })
     return True, f"Request {req_id} submitted."
@@ -503,6 +504,28 @@ def dispatch_request(request_id):
         "Dispatched_Time": now,
     })
     return ok, "Request marked as DISPATCHED." if ok else "Error updating status."
+
+
+def receive_request(request_id):
+    """Mark a DISPATCHED request as RECEIVED by the scientist."""
+    requests_df = get_requests()
+    if requests_df.empty:
+        return False, "No requests found."
+
+    row = requests_df[requests_df["Request_ID"] == request_id]
+    if row.empty:
+        return False, "Request not found."
+    row = row.iloc[0]
+
+    if row["Status"] != "DISPATCHED":
+        return False, f"Only dispatched requests can be marked as received (current: {row['Status']})."
+
+    now = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
+    ok = _update_cell_by_id(WS_REQUESTS, "Request_ID", request_id, {
+        "Status": "RECEIVED",
+        "Received_Time": now,
+    })
+    return ok, "Request marked as RECEIVED." if ok else "Error updating status."
 
 
 # ── Users ──────────────────────────────────────
