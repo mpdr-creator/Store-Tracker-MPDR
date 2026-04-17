@@ -870,7 +870,8 @@ def admin_requests():
                 st.info("No items ready for dispatch.")
             else:
                 for _, d_req in to_dispatch.iterrows():
-                    d_item_name = inv[inv["Item_ID"] == str(d_req["Item_ID"])].iloc[0]["Unique_Name"] if not inv.empty else d_req["Item_ID"]
+                    d_match = inv[inv["Item_ID"] == str(d_req["Item_ID"])]
+                    d_item_name = d_match.iloc[0]["Unique_Name"] if not d_match.empty else f"Item {d_req['Item_ID']}"
                     with st.expander(f"📦 DISPATCH: {d_item_name} ({d_req['Quantity']} units to {d_req['Department']})"):
                         st.write(f"**Accepted on:** {d_req.get('Accepted_Time', d_req.get('Approval_Time', 'N/A'))}")
                         if st.button(f"🚚 Confirm Dispatch", key=f"disp_{d_req['Request_ID']}", use_container_width=True):
