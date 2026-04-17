@@ -298,8 +298,8 @@ email = auth.current_user()
 
 # Sidebar Logo Integration
 if os.path.exists(logo_path):
-    # Centered logo with controlled width
-    logo_l, logo_m, logo_r = st.sidebar.columns([1, 4, 1])
+    # Centered logo with extended width
+    logo_l, logo_m, logo_r = st.sidebar.columns([0.5, 9, 0.5])
     with logo_m:
         st.image(logo_path, use_container_width=True)
     st.sidebar.markdown('<div style="height: 20px;"></div>', unsafe_allow_html=True) 
