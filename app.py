@@ -873,14 +873,14 @@ def admin_requests():
     with tab_all:
         all_req = db.get_requests()
         if not all_req.empty:
-            status_filter = st.multiselect("Filter by Status", ["PENDING", "ACCEPTED", "APPROVED", "REJECTED", "DISPATCHED"],
-                                           default=["PENDING", "ACCEPTED", "APPROVED", "REJECTED", "DISPATCHED"])
+            status_filter = st.multiselect("Filter by Status", ["PENDING", "ACCEPTED", "REJECTED", "DISPATCHED", "RECEIVED"],
+                                           default=["PENDING", "ACCEPTED", "REJECTED", "DISPATCHED"])
             filtered = all_req[all_req["Status"].isin(status_filter)]
             
             # Add Dispatch button in a dynamic way for Accepted items
             st.divider()
             st.subheader("🚚 Pending Dispatch")
-            to_dispatch = filtered[filtered["Status"].isin(["ACCEPTED", "APPROVED"])]
+            to_dispatch = filtered[filtered["Status"] == "ACCEPTED"]
             if to_dispatch.empty:
                 st.info("No items ready for dispatch.")
             else:
@@ -888,7 +888,7 @@ def admin_requests():
                     d_match = inv[inv["Item_ID"] == str(d_req["Item_ID"])]
                     d_item_name = d_match.iloc[0]["Unique_Name"] if not d_match.empty else f"Item {d_req['Item_ID']}"
                     with st.expander(f"📦 DISPATCH: {d_item_name} ({d_req['Quantity']} units to {d_req['Department']})"):
-                        st.write(f"**Accepted / Rejected on:** {d_req.get('Accepted_Time', d_req.get('Approval_Time', 'N/A'))}")
+                        st.write(f"**Accepted / Rejected on:** {d_req.get('Accepted_Time', 'N/A')}")
                         if st.button(f"🚚 Confirm Dispatch", key=f"disp_{d_req['Request_ID']}", use_container_width=True):
                             ok, msg = db.dispatch_request(d_req["Request_ID"])
                             if ok:
@@ -1462,7 +1462,7 @@ def management_dashboard():
     c1, c2, c3, c4 = st.columns(4)
     total_items = len(inv) if not inv.empty else 0
     total_reqs = len(reqs) if not reqs.empty else 0
-    approved = len(reqs[reqs["Status"].isin(["ACCEPTED", "APPROVED", "DISPATCHED"])]) if not reqs.empty else 0
+    approved = len(reqs[reqs["Status"].isin(["ACCEPTED", "DISPATCHED", "RECEIVED"])]) if not reqs.empty else 0
     pending = len(reqs[reqs["Status"] == "PENDING"]) if not reqs.empty else 0
 
     c1.metric("Total Items", total_items)
@@ -1482,10 +1482,10 @@ def management_dashboard():
     with col_left:
         st.subheader("📊 Department-wise Consumption")
         if not reqs.empty:
-            approved_reqs = reqs[reqs["Status"].isin(["ACCEPTED", "APPROVED", "DISPATCHED"])].copy()
-            if not approved_reqs.empty:
-                approved_reqs["Quantity"] = pd.to_numeric(approved_reqs["Quantity"], errors="coerce")
-                dept_data = approved_reqs.groupby("Department")["Quantity"].sum().reset_index()
+            accepted_reqs = reqs[reqs["Status"].isin(["ACCEPTED", "DISPATCHED", "RECEIVED"])].copy()
+            if not accepted_reqs.empty:
+                accepted_reqs["Quantity"] = pd.to_numeric(accepted_reqs["Quantity"], errors="coerce")
+                dept_data = accepted_reqs.groupby("Department")["Quantity"].sum().reset_index()
                 fig = px.bar(dept_data, x="Department", y="Quantity",
                              color="Department",
                              color_discrete_sequence=["#009688", "#00796b", "#4db6ac", "#b2dfdb"],
@@ -1493,7 +1493,7 @@ def management_dashboard():
                 fig.update_layout(_get_plotly_layout("Quantity per Department"))
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("No approved requests to plot for department consumption.")
+                st.info("No accepted requests to plot for department consumption.")
 
     with col_right:
         st.subheader("⏱️ SLA Analytics (Dispatch Times)")
@@ -1564,8 +1564,8 @@ def management_dashboard():
             colors = {
                 "PENDING": STATUS_PALETTE["warning"]["text"], 
                 "ACCEPTED": STATUS_PALETTE["success"]["text"], 
-                "APPROVED": STATUS_PALETTE["success"]["text"], 
                 "DISPATCHED": STATUS_PALETTE["info"]["text"], 
+                "RECEIVED": STATUS_PALETTE["indigo"]["text"],
                 "REJECTED": STATUS_PALETTE["danger"]["text"]
             }
             fig = px.pie(status_counts, names="Status", values="Count",

@@ -468,9 +468,9 @@ def accept_request(request_id, accepted_by, remarks=""):
         return False, "Request not found."
     row = row.iloc[0]
 
-    # Handle legacy APPROVED status as well as PENDING
-    if row["Status"] not in ["PENDING", "APPROVED"]:
-        return False, f"Request is in {row['Status']} state and cannot be accepted."
+    # Handle PENDING requests
+    if row["Status"] != "PENDING":
+        return False, f"Request {request_id} is already {row['Status']}."
 
     item_id = str(row["Item_ID"])
     qty = float(row["Quantity"])
@@ -518,9 +518,9 @@ def dispatch_request(request_id):
         return False, "Request not found."
     row = row.iloc[0]
 
-    # Can only dispatch from ACCEPTED state (or legacy APPROVED)
-    if row["Status"] not in ["ACCEPTED", "APPROVED"]:
-        return False, f"Only accepted requests can be dispatched (current: {row['Status']})."
+    # Can only dispatch from ACCEPTED state
+    if row["Status"] != "ACCEPTED":
+        return False, f"Cannot dispatch request in {row['Status']} status."
 
     now = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
     ok = _update_cell_by_id(WS_REQUESTS, "Request_ID", request_id, {
