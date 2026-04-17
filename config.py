@@ -66,4 +66,4 @@ PO_HEADERS = [
     "Unit", "Days to deliver", "Expected Delivery", "Follow-up Date", "Status", 
     "Recived date", "Remark/Note"
 ]
-PO_UNITS = ["KG", "GM", "MG", "Ltr", "ML", "Units", "Box", "Number's", "Packets", "others"]
+PO_UNITS = ["Kg", "gm", "mg", "Ltr", "ml", "Units", "Box", "Number's", "Packets", "others"]
