@@ -831,7 +831,7 @@ def admin_requests():
     st.title("📋 Request Management")
     inv = db.get_all_items()
 
-    tab_pending, tab_all = st.tabs(["Pending Requests", "All Requests"])
+    tab_pending, tab_all, tab_h = st.tabs(["Pending Requests", "All Requests", "Full History"])
 
     with tab_pending:
         pending = db.get_requests(status="PENDING")
@@ -888,7 +888,7 @@ def admin_requests():
                     d_match = inv[inv["Item_ID"] == str(d_req["Item_ID"])]
                     d_item_name = d_match.iloc[0]["Unique_Name"] if not d_match.empty else f"Item {d_req['Item_ID']}"
                     with st.expander(f"📦 DISPATCH: {d_item_name} ({d_req['Quantity']} units to {d_req['Department']})"):
-                        st.write(f"**Accepted on:** {d_req.get('Accepted_Time', d_req.get('Approval_Time', 'N/A'))}")
+                        st.write(f"**Accepted / Rejected on:** {d_req.get('Accepted_Time', d_req.get('Approval_Time', 'N/A'))}")
                         if st.button(f"🚚 Confirm Dispatch", key=f"disp_{d_req['Request_ID']}", use_container_width=True):
                             ok, msg = db.dispatch_request(d_req["Request_ID"])
                             if ok:
@@ -898,7 +898,7 @@ def admin_requests():
                                 st.error(msg)
 
     with tab_h:
-        _render_request_history(reqs)
+        _render_request_history(all_req)
 
 
 def _render_request_history(reqs, title="📜 Full Request History"):

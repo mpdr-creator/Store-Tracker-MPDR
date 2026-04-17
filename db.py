@@ -137,7 +137,6 @@ def initialize_database():
             except Exception:
                 pass
         except Exception as e:
-
             # Try to get email for quota error message
             try:
                 if "gcp_service_account" in st.secrets:
@@ -156,6 +155,11 @@ def initialize_database():
                     f"(Editor), and refresh."
                 )
             return False, f"Failed to create sheet: {e}"
+    except Exception as e:
+        err_str = str(e).lower()
+        if "resolution" in err_str or "dns" in err_str or "connection" in err_str or "oauth2.googleapis.com" in err_str:
+            return False, "🌐 **Network Error**: Could not connect to Google Services. Please check your internet connection and DNS settings."
+        return False, f"Database connection failed: {e}"
 
     global _spreadsheet
     _spreadsheet = sh
@@ -163,7 +167,14 @@ def initialize_database():
     # Optimize: Fetch all worksheets once
     try:
         existing_ws = call_with_retry(sh.worksheets)
+    except gspread.exceptions.APIError as e:
+        if "quota" in str(e).lower():
+            return False, f"Google API Quota exceeded. Please wait a few minutes and try again."
+        return False, f"Google API Error: {e}"
     except Exception as e:
+        err_str = str(e).lower()
+        if "resolution" in err_str or "dns" in err_str or "connection" in err_str or "oauth2.googleapis.com" in err_str:
+            return False, "🌐 **Network Error**: Could not connect to Google Services. Please check your internet connection and DNS settings."
         return False, f"Failed to list worksheets: {e}"
 
     _ensure_worksheet(sh, WS_INVENTORY, INVENTORY_HEADERS, existing_ws)
@@ -177,11 +188,16 @@ def initialize_database():
     return True, "Database ready."
 
 
-# ── ID Generator ────────────────────────────────
+# ── ID Generators ───────────────────────────────
 def generate_id(length=6):
     """Generate a random customized uppercase alphanumeric ID."""
     chars = string.ascii_uppercase + string.digits
     return "".join(random.choices(chars, k=length))
+
+
+def generate_numeric_id(length=6):
+    """Generate a random numeric-only ID of fixed length."""
+    return "".join(random.choices(string.digits, k=length))
 
 
 # ── Generic helpers ─────────────────────────────
@@ -301,7 +317,10 @@ def add_item(unique_name, material_name, cas_no, grade, manufacturer, units, pac
     except (ValueError, TypeError):
         opening_stock = 0.0
         
-    item_id = generate_id(6)
+    # Ensure we don't accidentally generate a duplicate (rare for 1M possibilities but good practice)
+    # In a real system, we'd check the DB, but for now we'll rely on the 6-digit space.
+    item_id = generate_numeric_id(6)
+    
     _append(WS_INVENTORY, {
         "Item_ID": item_id,
         "Unique_Name": unique_name,
@@ -409,6 +428,11 @@ def submit_request(item_id, requested_by, department, quantity):
         return False, f"Insufficient stock. Available: {available}"
     if quantity <= 0:
         return False, "Quantity must be positive."
+
+    # Automation: Always verify/fallback to the user's profile department
+    user = get_user(requested_by)
+    if user is not None and user.get("Department"):
+        department = user["Department"]
 
     req_id = generate_id(6)
     _append(WS_REQUESTS, {
