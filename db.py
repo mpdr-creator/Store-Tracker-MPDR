@@ -47,14 +47,17 @@ def _get_client():
         return _client
     
     # 1. Try Streamlit Secrets (for Cloud Deployment)
-    if "gcp_service_account" in st.secrets:
-        try:
+    try:
+        if "gcp_service_account" in st.secrets:
             creds_info = st.secrets["gcp_service_account"]
+            # Double check for dict-like behavior
+            if hasattr(creds_info, "to_dict"):
+                creds_info = creds_info.to_dict()
             creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
             _client = gspread.authorize(creds)
             return _client
-        except Exception as e:
-            print(f"[db] Error loading secrets: {e}")
+    except Exception as e:
+        print(f"[db] Warning: Could not load st.secrets: {e}")
 
     # 2. Try Local File (for Local Development)
     creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "credentials.json")
@@ -140,11 +143,19 @@ def initialize_database():
             # Try to get email for quota error message
             try:
                 if "gcp_service_account" in st.secrets:
-                    sa_email = st.secrets["gcp_service_account"].get("client_email", "the service account")
+                    sa_sec = st.secrets["gcp_service_account"]
+                    # Safely handle AttrDict or dict
+                    if hasattr(sa_sec, "get"):
+                        sa_email = sa_sec.get("client_email", "the service account")
+                    else:
+                        sa_email = "the service account"
                 else:
                     creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "credentials.json")
-                    creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
-                    sa_email = getattr(creds, "service_account_email", "the service account")
+                    if os.path.exists(creds_path):
+                        creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
+                        sa_email = getattr(creds, "service_account_email", "the service account")
+                    else:
+                        sa_email = "the service account"
             except Exception:
                 sa_email = "the service account"
 

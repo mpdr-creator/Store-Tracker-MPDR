@@ -227,7 +227,7 @@ STATUS_PALETTE = {
 def status_color(status):
     if status == "PENDING":
         return f"color: {STATUS_PALETTE['warning']['text']}; font-weight: bold;"
-    elif status in ["ACCEPTED", "APPROVED"]:
+    elif status == "ACCEPTED":
         return f"color: {STATUS_PALETTE['success']['text']}; font-weight: bold;"
     elif status == "DISPATCHED":
         return f"color: {STATUS_PALETTE['info']['text']}; font-weight: bold;"
@@ -271,7 +271,10 @@ if "db_ready" not in st.session_state:
     creds_path = os.path.join(base_dir, "credentials.json")
     
     creds_exist = os.path.exists(creds_path)
-    secrets_exist = "gcp_service_account" in st.secrets
+    try:
+        secrets_exist = "gcp_service_account" in st.secrets
+    except Exception:
+        secrets_exist = False
     
     if not creds_exist and not secrets_exist:
         st.error("❌ **Credentials missing.** Please provide `credentials.json` in the app folder.")
