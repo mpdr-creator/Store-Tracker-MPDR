@@ -897,6 +897,9 @@ def admin_requests():
                             else:
                                 st.error(msg)
 
+            st.divider()
+            _render_request_history(filtered, title="🔍 Filtered View")
+
     with tab_h:
         _render_request_history(all_req)
 
