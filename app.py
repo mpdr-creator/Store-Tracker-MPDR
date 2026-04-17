@@ -1461,6 +1461,26 @@ def management_dashboard():
     reqs = db.get_requests()
     ledger = db.get_ledger()
 
+    # ── Date-Range Filter ──
+    with st.expander("🔍 Filter Analytics by Date Range", expanded=True):
+        c_from, c_to = st.columns(2)
+        # Default to start of current month
+        default_start = datetime.date.today().replace(day=1)
+        default_end = datetime.date.today()
+        
+        start_date = c_from.date_input("From Date", value=default_start)
+        end_date = c_to.date_input("To Date", value=default_end)
+
+        if start_date > end_date:
+            st.warning("⚠️ 'From Date' cannot be after 'To Date'. Showing all data.")
+        else:
+            if not reqs.empty:
+                req_dt = pd.to_datetime(reqs["Timestamp"]).dt.date
+                reqs = reqs[(req_dt >= start_date) & (req_dt <= end_date)]
+            if not ledger.empty:
+                led_dt = pd.to_datetime(ledger["DateTime"]).dt.date
+                ledger = ledger[(led_dt >= start_date) & (led_dt <= end_date)]
+
     # ── KPI row ──
     c1, c2, c3, c4 = st.columns(4)
     total_items = len(inv) if not inv.empty else 0
