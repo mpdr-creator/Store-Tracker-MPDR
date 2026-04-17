@@ -26,7 +26,7 @@ npm install
 npm start
 
 # Open in browser
-open http://localhost:3000
+[open http://localhost:3000](https://store-tracker-mpdr.streamlit.app/)
 ```
 
 ## Tech Stack
