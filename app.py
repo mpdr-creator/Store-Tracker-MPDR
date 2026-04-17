@@ -1329,7 +1329,7 @@ def scientist_submit_request():
             with st.form("add_cart_form", clear_on_submit=True):
                 options = display_inv["Item_ID"].astype(str) + " — " + display_inv["Unique_Name"].astype(str) + " (Stock: " + display_inv["Available_Stock"].astype(str) + ")"
                 selected = st.selectbox("Select Chemical / Material", options)
-                dept = st.selectbox("Your Department", DEPARTMENTS)
+                user_dept = st.session_state.get("department", "Unknown")
                 qty = st.number_input("Quantity Required", min_value=0.1, step=0.5)
 
                 if st.form_submit_button("🛒 Add to Cart", use_container_width=True):
@@ -1344,7 +1344,7 @@ def scientist_submit_request():
                         st.session_state["cart"].append({
                             "item_id": item_id,
                             "name": item_name,
-                            "dept": dept,
+                            "dept": user_dept,
                             "qty": qty
                         })
                         st.success(f"Added {qty} units of {item_name} to cart.")
