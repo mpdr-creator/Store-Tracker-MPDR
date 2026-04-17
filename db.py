@@ -301,7 +301,7 @@ def add_item(unique_name, material_name, cas_no, grade, manufacturer, units, pac
     except (ValueError, TypeError):
         opening_stock = 0.0
         
-    item_id = generate_id(10)
+    item_id = generate_id(6)
     _append(WS_INVENTORY, {
         "Item_ID": item_id,
         "Unique_Name": unique_name,
