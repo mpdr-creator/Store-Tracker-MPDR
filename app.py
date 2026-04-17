@@ -814,6 +814,7 @@ def admin_add_stock():
 
 def admin_requests():
     st.title("📋 Request Management")
+    inv = db.get_all_items()
 
     tab_pending, tab_all = st.tabs(["Pending Requests", "All Requests"])
 
@@ -822,7 +823,6 @@ def admin_requests():
         if pending.empty:
             st.info("🎉 No pending requests!")
         else:
-            inv = db.get_all_items()
             for _, req in pending.iterrows():
                 item_match = inv[inv["Item_ID"] == str(req["Item_ID"])]
                 item_name = item_match.iloc[0]["Unique_Name"] if not item_match.empty else req["Item_ID"]
