@@ -970,9 +970,12 @@ def _render_request_history(reqs, title="📜 Full Request History"):
         if not dispatched.empty:
             st.divider()
             st.markdown("### 📦 Confirm Received Materials")
+            # Optimization: Fetch inventory once to avoid redundant API calls
+            inv_df = db.get_all_items()
+            inv_map = {str(r["Item_ID"]): r["Unique_Name"] for _, r in inv_df.iterrows()} if not inv_df.empty else {}
+
             for idx, row in dispatched.iterrows():
-                inv_data = db.get_item(row["Item_ID"])
-                item_name = inv_data["Unique_Name"] if not inv_data.empty else "Item"
+                item_name = inv_map.get(str(row["Item_ID"]), f"Item {row['Item_ID']}")
                 with st.expander(f"Confirm Receipt: {item_name} ({row['Quantity']} units)"):
                     if st.button(f"I have received this chemical", key=f"rec_btn_{row['Request_ID']}"):
                         ok, res = db.receive_request(row["Request_ID"])

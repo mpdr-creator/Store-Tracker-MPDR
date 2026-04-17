@@ -319,6 +319,15 @@ def get_all_items():
     return df
 
 
+def get_item(item_id):
+    """Retrieve a single inventory item by ID."""
+    df = get_all_items()
+    if df.empty:
+        return pd.Series()
+    match = df[df["Item_ID"] == str(item_id)]
+    return match.iloc[0] if not match.empty else pd.Series()
+
+
 def add_item(unique_name, material_name, cas_no, grade, manufacturer, units, pack_size, material_type, opening_stock=0.0, min_stock=5.0, updated_by="admin"):
     """Create a new item in Inventory Master and optional opening entry in Ledger."""
     
