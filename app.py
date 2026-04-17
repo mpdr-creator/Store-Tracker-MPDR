@@ -223,6 +223,18 @@ STATUS_PALETTE = {
     "info": {"bg": "#f0f9ff", "text": "#075985"}
 }
 
+def status_color(status):
+    if status == "PENDING":
+        return f"color: {STATUS_PALETTE['warning']['text']}; font-weight: bold;"
+    elif status in ["ACCEPTED", "APPROVED"]:
+        return f"color: {STATUS_PALETTE['success']['text']}; font-weight: bold;"
+    elif status == "DISPATCHED":
+        return f"color: {STATUS_PALETTE['info']['text']}; font-weight: bold;"
+    elif status == "REJECTED":
+        return f"color: {STATUS_PALETTE['danger']['text']}; font-weight: bold;"
+    return "color: #374151;"
+
+
 def format_2_decimals(val):
     try:
         if val == "" or pd.isna(val):
@@ -1376,19 +1388,6 @@ def scientist_my_requests():
     inv = db.get_all_items()
     if not inv.empty:
         reqs = reqs.merge(inv[["Item_ID", "Unique_Name"]], on="Item_ID", how="left")
-
-    # Status badges
-    def status_color(status):
-        if status == "PENDING":
-            return f"color: {STATUS_PALETTE['warning']['text']}; font-weight: bold;"
-        elif status in ["ACCEPTED", "APPROVED"]:
-            return f"color: {STATUS_PALETTE['success']['text']}; font-weight: bold;"
-        elif status == "DISPATCHED":
-            return f"color: {STATUS_PALETTE['info']['text']}; font-weight: bold;"
-        elif status == "REJECTED":
-            return f"color: {STATUS_PALETTE['danger']['text']}; font-weight: bold;"
-        return "color: #374151;"
-
 
     # Label columns for the scientists
     ui_map = {
