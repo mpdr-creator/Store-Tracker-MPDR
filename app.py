@@ -922,9 +922,17 @@ def _render_request_history(reqs, title="📜 Full Request History"):
             if pd.isna(acc) or pd.isna(disp) or not acc or not disp:
                 return "-"
             diff = (disp - acc).total_seconds() / 60
+            
+            if diff < 60:
+                ts = f"{int(diff)}m"
+            elif diff < 1440:
+                ts = f"{round(diff/60, 1)}h"
+            else:
+                ts = f"{round(diff/1440, 1)}d"
+
             if diff > 30:
-                return f"⚠️ Delayed ({int(diff)}m)"
-            return f"✅ On-Time ({int(diff)}m)"
+                return f"⚠️ Delayed ({ts})"
+            return f"✅ On-Time ({ts})"
         except:
             return "-"
 
