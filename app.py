@@ -1530,12 +1530,12 @@ def management_dashboard():
             accepted_reqs = reqs[reqs["Status"].isin(["ACCEPTED", "DISPATCHED", "RECEIVED"])].copy()
             if not accepted_reqs.empty:
                 accepted_reqs["Quantity"] = pd.to_numeric(accepted_reqs["Quantity"], errors="coerce")
-                dept_data = accepted_reqs.groupby("Department")["Quantity"].sum().reset_index()
-                fig = px.bar(dept_data, x="Department", y="Quantity",
+                dept_data = accepted_reqs.groupby("Department").size().reset_index(name="Request Count")
+                fig = px.bar(dept_data, x="Department", y="Request Count",
                              color="Department",
                              color_discrete_sequence=["#009688", "#00796b", "#4db6ac", "#b2dfdb"],
-                             title="Total Quantity Issued per Department")
-                fig.update_layout(_get_plotly_layout("Quantity per Department"))
+                             title="Requests Fulfilled per Department")
+                fig.update_layout(_get_plotly_layout("Activity per Department"))
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("No accepted requests to plot for department consumption.")
@@ -1581,20 +1581,18 @@ def management_dashboard():
             ledger_c = ledger_c.dropna(subset=["DateTime"])
             if not ledger_c.empty:
                 ledger_c["Date"] = ledger_c["DateTime"].dt.date
-                inflow = ledger_c[ledger_c["Quantity"] > 0].groupby("Date")["Quantity"].sum().reset_index()
-                inflow.columns = ["Date", "Inflow"]
-                outflow = ledger_c[ledger_c["Quantity"] < 0].groupby("Date")["Quantity"].sum().abs().reset_index()
-                outflow.columns = ["Date", "Outflow"]
+                inflow = ledger_c[ledger_c["Quantity"] > 0].groupby("Date").size().reset_index(name="Inflow Count")
+                outflow = ledger_c[ledger_c["Quantity"] < 0].groupby("Date").size().reset_index(name="Outflow Count")
                 merged = pd.merge(inflow, outflow, on="Date", how="outer").fillna(0).sort_values("Date")
 
                 fig = go.Figure()
-                fig.add_trace(go.Scatter(x=merged["Date"], y=merged["Inflow"],
-                                         mode="lines+markers", name="Inflow",
+                fig.add_trace(go.Scatter(x=merged["Date"], y=merged["Inflow Count"],
+                                         mode="lines+markers", name="Inflow (Entries)",
                                          line=dict(color="#009688", width=3)))
-                fig.add_trace(go.Scatter(x=merged["Date"], y=merged["Outflow"],
-                                         mode="lines+markers", name="Outflow",
+                fig.add_trace(go.Scatter(x=merged["Date"], y=merged["Outflow Count"],
+                                         mode="lines+markers", name="Outflow (Issues)",
                                          line=dict(color="#991b1b", width=3)))
-                fig.update_layout(_get_plotly_layout("Stock Movement Over Time"))
+                fig.update_layout(_get_plotly_layout("Transaction Volume Over Time"))
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("No dated ledger entries.")
