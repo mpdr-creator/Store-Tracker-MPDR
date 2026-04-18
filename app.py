@@ -579,13 +579,14 @@ def admin_inventory():
     with tab_view:
         inv = _load_inventory_with_stock()
         if not inv.empty:
-            search = st.text_input("🔍 Search by name, CAS, or manufacturer", key="inv_search")
+            search = st.text_input("🔍 Search by Name, ID, CAS, or Manufacturer", key="inv_search")
             if search:
                 search = search.lower().strip()
                 mask = (
                     inv["Unique_Name"].str.contains(search, case=False, na=False) |
                     inv["Material_Name"].str.contains(search, case=False, na=False) |
                     inv["CAS_No"].str.contains(search, case=False, na=False) |
+                    inv["Item_ID"].astype(str).str.contains(search, case=False, na=False) |
                     inv["Manufacturer"].str.contains(search, case=False, na=False)
                 )
                 inv = inv[mask]
