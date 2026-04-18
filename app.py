@@ -1541,7 +1541,7 @@ def management_dashboard():
                 st.info("No accepted requests to plot for department consumption.")
 
     with col_right:
-        st.subheader("⏱️ SLA Analytics (Dispatch Times)")
+        st.subheader("⏱️ SLA Analytics ")
         if not reqs.empty:
             # Filter for requests that have both Accept and Dispatch times
             sla_df = reqs.dropna(subset=["Accepted_Time", "Dispatched_Time"]).copy()
