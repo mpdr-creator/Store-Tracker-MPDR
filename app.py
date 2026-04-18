@@ -1261,10 +1261,11 @@ def admin_vendors(is_admin=True):
                 "Company_Name": "Suppliers / Company Name",
                 "Contact_Number": "Contact Number", 
                 "Email": "Email ID",
+                "Supplied_Items": "Supplied Items",
                 "Notes": "Others"
             })
             
-            cols_to_show = ["Vendor_ID", "Suppliers / Company Name", "Contact Number", "Email ID", "Others"]
+            cols_to_show = ["Vendor_ID", "Suppliers / Company Name", "Supplied Items", "Contact Number", "Email ID", "Others"]
             display = display[[c for c in cols_to_show if c in display.columns]].copy()
             display.insert(0, "S.No", range(1, len(display) + 1))
             
@@ -1297,13 +1298,14 @@ def admin_vendors(is_admin=True):
                 spoc = c2.text_input("Contact Person (SPOC)")
                 contact = c1.text_input("Contact Number *")
                 email_id = c2.text_input("Email ID *")
+                supplied = st.text_input("What is he supplying? (Supplied Items)", placeholder="e.g. Solvents, REA, Brushes...")
                 notes = st.text_area("Others (Notes)", placeholder="Extra details...", height=68)
                 
                 if st.form_submit_button("➕ Save Supplier", use_container_width=True):
                     if not co_name or not contact or not email_id:
                         st.error("Company Name, Contact, and Email are required.")
                     else:
-                        db.add_vendor(co_name, spoc, contact, email_id, notes)
+                        db.add_vendor(co_name, spoc, contact, email_id, supplied, notes)
                         st.success(f"Supplier **{co_name}** added successfully.")
                         st.rerun()
 

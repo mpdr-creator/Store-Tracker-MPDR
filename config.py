@@ -28,7 +28,7 @@ INVENTORY_HEADERS = [
 
 # Suppliers headers
 VENDOR_HEADERS = [
-    "Vendor_ID", "Company_Name", "Contact_Person", "Contact_Number", "Email", "Notes"
+    "Vendor_ID", "Company_Name", "Contact_Person", "Contact_Number", "Email", "Supplied_Items", "Notes"
 ]
 
 # Stock_Ledger headers
