@@ -1259,13 +1259,14 @@ def admin_vendors(is_admin=True):
             display = vendors.copy()
             display = display.rename(columns={
                 "Company_Name": "Suppliers / Company Name",
+                "Contact_Person": "Contact Person (SPOC)",
                 "Contact_Number": "Contact Number", 
                 "Email": "Email ID",
                 "Supplied_Items": "Supplied Items",
                 "Notes": "Others"
             })
             
-            cols_to_show = ["Vendor_ID", "Suppliers / Company Name", "Supplied Items", "Contact Number", "Email ID", "Others"]
+            cols_to_show = ["Vendor_ID", "Suppliers / Company Name", "Contact Person (SPOC)", "Supplied Items", "Contact Number", "Email ID", "Others"]
             display = display[[c for c in cols_to_show if c in display.columns]].copy()
             display.insert(0, "S.No", range(1, len(display) + 1))
             
