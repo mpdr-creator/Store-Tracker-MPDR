@@ -1266,7 +1266,9 @@ def admin_vendors(is_admin=True):
                 "Notes": "Others"
             })
             
-            cols_to_show = ["Vendor_ID", "Suppliers / Company Name", "Contact Person (SPOC)", "Supplied Items", "Contact Number", "Email ID", "Others"]
+            cols_to_show = ["Suppliers / Company Name", "Contact Person (SPOC)", "Supplied Items", "Contact Number", "Email ID", "Others"]
+            # Keep Vendor_ID for internal logic but exclude from display
+            full_display = display.copy() 
             display = display[[c for c in cols_to_show if c in display.columns]].copy()
             display.insert(0, "S.No", range(1, len(display) + 1))
             
@@ -1277,7 +1279,9 @@ def admin_vendors(is_admin=True):
                 
                 with c2.form("del_vendor_form"):
                     st.write("**Remove Vendor**")
-                    target = st.selectbox("Select to delete", display["Vendor_ID"])
+                    options = {f"{row['Suppliers / Company Name']} ({row['Vendor_ID']})": row["Vendor_ID"] for _, row in full_display.iterrows()}
+                    selected_label = st.selectbox("Select to delete", options.keys())
+                    target = options[selected_label]
                     if st.form_submit_button("❌ Delete"):
                         ok, msg = db.delete_vendor(target)
                         if ok:
