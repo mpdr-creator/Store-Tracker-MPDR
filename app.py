@@ -997,7 +997,7 @@ def _render_request_history(reqs, title="📜 Full Request History"):
             "Request_ID": None, # Hidden
             "Received?": st.column_config.SelectboxColumn(
                 "Received?",
-                options=["Yes", "No"],
+                options=["-", "No", "Yes"],
                 help="Select 'Yes' once you have received the chemical."
             ),
             "Status": st.column_config.TextColumn("Status", disabled=True),
@@ -1016,17 +1016,29 @@ def _render_request_history(reqs, title="📜 Full Request History"):
             key=f"editor_{title.replace(' ', '_')}_{role}"
         )
         
-        # Process updates: check if any "No" became "Yes" for "DISPATCHED" items
+        # Process updates: check for changes in "Received?" column
         for i, row in edited_df.iterrows():
             orig_row = display_reqs.iloc[i]
-            if (row["Received?"] == "Yes" and 
-                orig_row["Received?"] == "No" and 
-                orig_row["Status"] == "DISPATCHED"):
-                
-                req_id = row["Request_ID"]
-                ok, res = db.receive_request(req_id)
+            req_id = row["Request_ID"]
+            
+            # 1. MARK AS RECEIVED (No -> Yes)
+            if row["Received?"] == "Yes" and orig_row["Received?"] != "Yes":
+                if orig_row["Status"] in ["DISPATCHED", "ACCEPTED"]:
+                    ok, res = db.receive_request(req_id)
+                    if ok:
+                        st.success(f"✅ Received: {row['Unique_Name']}")
+                        st.rerun()
+                    else:
+                        st.error(res)
+                else:
+                    st.warning(f"Cannot mark '{orig_row['Status']}' request as received.")
+                    st.rerun() # Reset to original value
+            
+            # 2. CLEAR RECEIPT (Yes -> No)
+            elif row["Received?"] == "No" and orig_row["Received?"] == "Yes":
+                ok, res = db.clear_receive_request(req_id)
                 if ok:
-                    st.success(f"✅ Received: {row['Unique_Name']}")
+                    st.info(f"🔄 Receipt cleared: {row['Unique_Name']}")
                     st.rerun()
                 else:
                     st.error(res)
