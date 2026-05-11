@@ -552,7 +552,7 @@ def dispatch_request(request_id):
 
 
 def receive_request(request_id):
-    """Mark a DISPATCHED request as RECEIVED by the scientist."""
+    """Mark a DISPATCHED or ACCEPTED request as RECEIVED by the scientist."""
     requests_df = get_requests()
     if requests_df.empty:
         return False, "No requests found."
@@ -562,8 +562,8 @@ def receive_request(request_id):
         return False, "Request not found."
     row = row.iloc[0]
 
-    if row["Status"] != "DISPATCHED":
-        return False, f"Only dispatched requests can be marked as received (current: {row['Status']})."
+    if row["Status"] not in ["DISPATCHED", "ACCEPTED"]:
+        return False, f"Only dispatched or accepted requests can be marked as received (current: {row['Status']})."
 
     now = get_ist_now().strftime("%Y-%m-%d %H:%M:%S")
     ok = _update_cell_by_id(WS_REQUESTS, "Request_ID", request_id, {
@@ -571,6 +571,14 @@ def receive_request(request_id):
         "Received_Time": now,
     })
     return ok, "Request marked as RECEIVED." if ok else "Error updating status."
+
+def clear_receive_request(request_id):
+    """Reset a RECEIVED request back to DISPATCHED (undo receipt)."""
+    ok = _update_cell_by_id(WS_REQUESTS, "Request_ID", request_id, {
+        "Status": "DISPATCHED",
+        "Received_Time": "",
+    })
+    return ok, "Receipt cleared." if ok else "Error updating status."
 
 
 # ── Users ──────────────────────────────────────
