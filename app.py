@@ -969,32 +969,72 @@ def _render_request_history(reqs, title="📜 Full Request History"):
         
     actual_cols = [c for c in final_cols if c in data_df.columns]
     
-    display_reqs = data_df[actual_cols].copy()
-    styled = display_reqs.style.map(status_color, subset=["Status"]).format({"Quantity": format_2_decimals})
-    st.dataframe(styled, use_container_width=True, height=400, hide_index=True)
-
-    # Receipt confirmation for scientists
+    # For Scientists, we add an interactive "Received?" column
     if auth.current_role() == "Scientist":
-        dispatched = reqs[reqs["Status"] == "DISPATCHED"]
-        if not dispatched.empty:
-            st.divider()
-            st.markdown("### 📦 Confirm Received Materials")
-            # Optimization: Fetch inventory once to avoid redundant API calls
-            inv_df = db.get_all_items()
-            inv_map = {str(r["Item_ID"]): r["Unique_Name"] for _, r in inv_df.iterrows()} if not inv_df.empty else {}
-
-            for idx, row in dispatched.iterrows():
-                item_name = inv_map.get(str(row["Item_ID"]), f"Item {row['Item_ID']}")
-                with st.expander(f"Confirm Receipt: {item_name} ({row['Quantity']} units)"):
-                    if st.button(f"I have received this chemical", key=f"rec_btn_{row['Request_ID']}"):
-                        ok, res = db.receive_request(row["Request_ID"])
-                        if ok:
-                            st.success("Success! Receipt time recorded.")
-                            st.rerun()
-                        else:
-                            st.error(res)
+        # Add "Received?" column logic
+        def get_received_status(row):
+            if row["Status"] == "RECEIVED": return "Yes"
+            if row["Status"] == "DISPATCHED": return "No"
+            return "-"
+        
+        data_df["Received?"] = data_df.apply(get_received_status, axis=1)
+        
+        # Insert "Received?" before "Received Time" for better flow
+        if "Received Time" in actual_cols:
+            idx = actual_cols.index("Received Time")
+            actual_cols.insert(idx, "Received?")
         else:
-            st.info("No requests yet.")
+            actual_cols.append("Received?")
+        
+        # We need Request_ID to process the update, but we'll hide it
+        if "Request_ID" not in actual_cols and "Request_ID" in data_df.columns:
+            actual_cols.append("Request_ID")
+            
+        display_reqs = data_df[actual_cols].copy()
+        
+        # Configure the editor
+        column_config = {
+            "Request_ID": None, # Hidden
+            "Received?": st.column_config.SelectboxColumn(
+                "Received?",
+                options=["Yes", "No"],
+                help="Select 'Yes' once you have received the chemical."
+            ),
+            "Status": st.column_config.TextColumn("Status", disabled=True),
+        }
+        
+        # All columns except "Received?" should be disabled
+        disabled_cols = [c for c in actual_cols if c != "Received?"]
+        
+        edited_df = st.data_editor(
+            display_reqs,
+            column_config=column_config,
+            disabled=disabled_cols,
+            use_container_width=True,
+            height=400,
+            hide_index=True,
+            key=f"editor_{title.replace(' ', '_')}_{role}"
+        )
+        
+        # Process updates: check if any "No" became "Yes" for "DISPATCHED" items
+        for i, row in edited_df.iterrows():
+            orig_row = display_reqs.iloc[i]
+            if (row["Received?"] == "Yes" and 
+                orig_row["Received?"] == "No" and 
+                orig_row["Status"] == "DISPATCHED"):
+                
+                req_id = row["Request_ID"]
+                ok, res = db.receive_request(req_id)
+                if ok:
+                    st.success(f"✅ Received: {row['Unique_Name']}")
+                    st.rerun()
+                else:
+                    st.error(res)
+    else:
+        # Standard view for Admin/Management
+        display_reqs = data_df[actual_cols].copy()
+        styled = display_reqs.style.map(status_color, subset=["Status"]).format({"Quantity": format_2_decimals})
+        st.dataframe(styled, use_container_width=True, height=400, hide_index=True)
 
 
 def admin_ledger():
@@ -1541,7 +1581,7 @@ def management_dashboard():
                 st.info("No accepted requests to plot for department consumption.")
 
     with col_right:
-        st.subheader("⏱️ SLA Analytics ")
+        st.subheader("⏱️ SLA Analytics (Dispatch Times)")
         if not reqs.empty:
             # Filter for requests that have both Accept and Dispatch times
             sla_df = reqs.dropna(subset=["Accepted_Time", "Dispatched_Time"]).copy()
