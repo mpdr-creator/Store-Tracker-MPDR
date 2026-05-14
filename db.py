@@ -219,16 +219,23 @@ def _ws(name):
 
 
 
-def _all_records(name):
+def _all_records(name, expected_headers=None):
     """Return all records from a worksheet as a DataFrame."""
     try:
         ws = _ws(name)
         data = call_with_retry(ws.get_all_records)
-        df = pd.DataFrame(data) if data else pd.DataFrame(columns=call_with_retry(ws.row_values, 1))
-
         
+        if data:
+            df = pd.DataFrame(data)
+        else:
+            # Fallback: get headers from sheet or use provided defaults
+            headers = call_with_retry(ws.row_values, 1)
+            if not headers and expected_headers:
+                headers = expected_headers
+            df = pd.DataFrame(columns=headers if headers else [])
+
         # Force string types on identifiers to prevent numeric inference bugs
-        str_cols = ["Item_ID", "Unique_Name", "Material_Name", "Request_ID", "Reference_ID", "UserID", "CAS_No"]
+        str_cols = ["Item_ID", "Unique_Name", "Material_Name", "Request_ID", "Reference_ID", "UserID", "CAS_No", "Vendor_ID"]
         for c in str_cols:
             if c in df.columns:
                 df[c] = df[c].astype(str)
@@ -236,7 +243,7 @@ def _all_records(name):
         return df
     except Exception as e:
         print(f"[db] Error reading {name}: {e}")
-        return pd.DataFrame()
+        return pd.DataFrame(columns=expected_headers if expected_headers else [])
 
 
 def _append(name, row_dict):
@@ -278,7 +285,7 @@ def _update_cell_by_id(name, id_col, id_val, updates: dict):
 
 # ── Suppliers ───────────────────────────────────
 def get_vendors():
-    return _all_records(WS_VENDORS)
+    return _all_records(WS_VENDORS, expected_headers=VENDOR_HEADERS)
 
 
 def add_vendor(company_name, contact_person, contact, email, supplied_items, notes):
@@ -309,10 +316,16 @@ def delete_vendor(vendor_id):
 
 # ── Inventory Master ───────────────────────────
 def get_all_items():
-    df = _all_records(WS_INVENTORY)
+    df = _all_records(WS_INVENTORY, expected_headers=INVENTORY_HEADERS)
+    # Ensure all required columns exist
+    for col in INVENTORY_HEADERS:
+        if col not in df.columns:
+            df[col] = None
+            
+    # Filter and reorder to match INVENTORY_HEADERS
+    df = df[INVENTORY_HEADERS]
+    
     if not df.empty:
-        # Filter to only active headers to hide removed columns like Pack_Size
-        df = df[[c for c in INVENTORY_HEADERS if c in df.columns]]
         if "Status" in df.columns:
             df["Status"] = df["Status"].replace("", "Active").fillna("Active")
         if "Unique_Name" in df.columns:
@@ -382,7 +395,7 @@ def delete_item(item_id):
 
 # ── Stock Ledger ───────────────────────────────
 def get_ledger(item_id=None):
-    df = _all_records(WS_LEDGER)
+    df = _all_records(WS_LEDGER, expected_headers=LEDGER_HEADERS)
     if df.empty:
         return df
     if item_id:
@@ -432,9 +445,15 @@ def compute_stock(item_id=None):
 
 # ── Requests ───────────────────────────────────
 def get_requests(status=None, requested_by=None):
-    df = _all_records(WS_REQUESTS)
+    df = _all_records(WS_REQUESTS, expected_headers=REQUESTS_HEADERS)
+    # Ensure all required columns exist
+    for col in REQUESTS_HEADERS:
+        if col not in df.columns:
+            df[col] = None
+            
     if df.empty:
         return df
+        
     if status:
         df = df[df["Status"] == status]
     if requested_by:
@@ -583,7 +602,7 @@ def clear_receive_request(request_id):
 
 # ── Users ──────────────────────────────────────
 def get_users():
-    return _all_records(WS_USERS)
+    return _all_records(WS_USERS, expected_headers=USERS_HEADERS)
 
 
 def get_user(email):
@@ -629,7 +648,7 @@ def delete_user(user_id):
 # ── PO Tracking ────────────────────────────────
 def get_po_track():
     """Return all PO tracking records as a DataFrame."""
-    return _all_records(WS_PO_TRACK)
+    return _all_records(WS_PO_TRACK, expected_headers=PO_HEADERS)
 
 
 def save_po_track(df):
